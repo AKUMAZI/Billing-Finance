@@ -25,11 +25,16 @@ export interface ExternalPatient {
 
 export interface PatientsApiResponse {
   status: string
-  results_per_page: number
-  total_results: number
-  total_pages: number
-  current_page: number
-  patients: ExternalPatient[]
+  results: number
+  data: {
+    patients: ExternalPatient[]
+  }
+  pagination: {
+    limit: number
+    page: number
+    pages: number
+    total: number
+  }
 }
 
 // Billing & Insurance Data Structure

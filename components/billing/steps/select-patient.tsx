@@ -62,9 +62,11 @@ export function SelectPatient({ selectedPatient, onSelectPatient, onNext }: Sele
     }
   )
 
-  const patients = data?.patients?.map(mapExternalToPatient) || []
-  const totalPages = data?.total_pages || 1
-  const totalResults = data?.total_results || 0
+  // API returns: { data: { patients: [...] }, pagination: { pages, total }, status, results }
+  const patientsArray = data?.data?.patients || []
+  const patients = patientsArray.map(mapExternalToPatient)
+  const totalPages = data?.pagination?.pages || 1
+  const totalResults = data?.pagination?.total || 0
 
   return (
     <div className="space-y-6">

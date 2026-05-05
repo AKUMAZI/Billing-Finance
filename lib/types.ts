@@ -1,3 +1,37 @@
+// External Patient from PMS API
+export interface ExternalPatient {
+  patient_id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string
+  gender: string
+  contact_number: string
+  email_address: string
+  address: string
+  national_id: string
+  status: string
+  visit_count: number
+  last_visit_date: string | null
+  attending_physician: string
+  insurance: {
+    provider: string
+    coverage_percentage: number
+    policy_number: string
+    group_number: string
+  }
+  registration_date: string
+  updated_at: string
+}
+
+export interface PatientsApiResponse {
+  status: string
+  results_per_page: number
+  total_results: number
+  total_pages: number
+  current_page: number
+  patients: ExternalPatient[]
+}
+
 // Billing & Insurance Data Structure
 export interface Bill {
   bill_id: string

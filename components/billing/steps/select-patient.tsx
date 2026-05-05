@@ -32,8 +32,12 @@ function mapExternalToPatient(external: ExternalPatient): Patient {
     patient_id: external.patient_id,
     full_name: `${external.first_name} ${external.last_name}`,
     date_of_birth: external.date_of_birth,
+    gender: external.gender || "N/A",
+    contact_number: external.contact_number || "N/A",
+    status: external.status || "active",
     ward_room: external.address || "N/A",
-    insurance_provider: external.insurance?.provider || "None",
+    insurance_provider: external.insurance?.provider || "Self-Pay",
+    attending_physician: external.attending_physician || "N/A",
   }
 }
 
@@ -88,9 +92,15 @@ export function SelectPatient({ selectedPatient, onSelectPatient, onNext }: Sele
                   <p className="text-sm text-muted-foreground">{selectedPatient.patient_id}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Insurance Provider</p>
-                <p className="font-medium text-foreground">{selectedPatient.insurance_provider}</p>
+              <div className="flex gap-8">
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Insurance Provider</p>
+                  <p className="font-medium text-foreground">{selectedPatient.insurance_provider}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Attending Physician</p>
+                  <p className="font-medium text-foreground">{selectedPatient.attending_physician}</p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -146,8 +156,10 @@ export function SelectPatient({ selectedPatient, onSelectPatient, onNext }: Sele
                     <TableRow className="bg-muted/50">
                       <TableHead>Patient ID</TableHead>
                       <TableHead>Full Name</TableHead>
+                      <TableHead>Gender</TableHead>
                       <TableHead>Date of Birth</TableHead>
-                      <TableHead>Insurance</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -159,9 +171,16 @@ export function SelectPatient({ selectedPatient, onSelectPatient, onNext }: Sele
                       >
                         <TableCell className="font-mono text-sm">{patient.patient_id}</TableCell>
                         <TableCell className="font-medium">{patient.full_name}</TableCell>
+                        <TableCell>{patient.gender}</TableCell>
                         <TableCell>{formatDate(patient.date_of_birth)}</TableCell>
+                        <TableCell>{patient.contact_number}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{patient.insurance_provider}</Badge>
+                          <Badge 
+                            variant="outline" 
+                            className={patient.status === "active" ? "text-green-600 border-green-600" : "text-muted-foreground"}
+                          >
+                            {patient.status}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

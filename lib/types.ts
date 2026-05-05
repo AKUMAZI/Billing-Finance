@@ -60,8 +60,12 @@ export interface Patient {
   patient_id: string
   full_name: string
   date_of_birth: string
+  gender: string
+  contact_number: string
+  status: string
   ward_room: string
   insurance_provider: string
+  attending_physician: string
 }
 
 export interface LineItem {

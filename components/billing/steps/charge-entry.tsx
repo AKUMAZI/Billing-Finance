@@ -62,6 +62,9 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
 
   // Convert medicines from invoice to line items
   const convertMedicinesToLineItems = (invoice: ExternalInvoice): LineItem[] => {
+    if (!invoice.medicines || invoice.medicines.length === 0) {
+      return []
+    }
     return invoice.medicines.map((med) => ({
       id: med.medicine_id,
       category: "medication" as const,
@@ -315,15 +318,18 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                       <TableCell className="max-w-[200px] truncate">{invoice.diagnosis}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {invoice.medicines.slice(0, 2).map((med) => (
+                          {(invoice.medicines || []).slice(0, 2).map((med) => (
                             <Badge key={med.medicine_id} variant="secondary" className="text-xs">
                               {med.medicine_name}
                             </Badge>
                           ))}
-                          {invoice.medicines.length > 2 && (
+                          {(invoice.medicines || []).length > 2 && (
                             <Badge variant="outline" className="text-xs">
-                              +{invoice.medicines.length - 2} more
+                              +{(invoice.medicines || []).length - 2} more
                             </Badge>
+                          )}
+                          {(!invoice.medicines || invoice.medicines.length === 0) && (
+                            <span className="text-muted-foreground text-xs">No medicines</span>
                           )}
                         </div>
                       </TableCell>

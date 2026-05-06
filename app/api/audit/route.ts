@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": AUDIT_API_KEY,
+        "x-subsystem-key": AUDIT_API_KEY,
       },
       body: JSON.stringify(auditPayload),
     })

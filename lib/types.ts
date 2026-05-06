@@ -37,6 +37,46 @@ export interface PatientsApiResponse {
   }
 }
 
+// External Invoice from PMS API
+export interface ExternalInvoiceMedicine {
+  medicine_id: string
+  medicine_name: string
+  dosage: string
+  quantity: number
+  unit_price: number
+  total_price: number
+}
+
+export interface ExternalInvoice {
+  invoice_id: string
+  patient_id: string
+  patient_name: string
+  appointment_id: string
+  diagnosis: string
+  medicines: ExternalInvoiceMedicine[]
+  total_amount: number
+  billing_status: "pending" | "paid" | "cancelled" | "refunded"
+  issued_date: string
+  due_date: string
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+export interface InvoicesApiResponse {
+  status: string
+  results: number
+  data: {
+    invoices: ExternalInvoice[]
+  }
+  pagination: {
+    limit: number
+    page: number
+    pages: number
+    total: number
+  }
+}
+
 // Billing & Insurance Data Structure
 export interface Bill {
   bill_id: string

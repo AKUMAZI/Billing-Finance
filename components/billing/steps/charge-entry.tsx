@@ -29,7 +29,7 @@ import {
   mockDoctorFeesFromStaffMgmt,
   formatCurrency,
 } from "@/lib/mock-data"
-import type { Patient, ChargeEntry as ChargeEntryType, LineItem, InvoicesApiResponse, ExternalInvoice } from "@/lib/types"
+import type { Patient, ChargeEntry as ChargeEntryType, LineItem, InvoicesApiResponse, ExternalInvoice, ExternalInvoiceItem } from "@/lib/types"
 
 interface ChargeEntryProps {
   patient: Patient
@@ -60,25 +60,25 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
 
   const patientInvoices = invoicesData?.data?.invoices || []
 
-  // Convert medicines from invoice to line items
-  const convertMedicinesToLineItems = (invoice: ExternalInvoice): LineItem[] => {
-    if (!invoice.medicines || invoice.medicines.length === 0) {
+  // Convert items from invoice to line items
+  const convertItemsToLineItems = (invoice: ExternalInvoice): LineItem[] => {
+    if (!invoice.items || invoice.items.length === 0) {
       return []
     }
-    return invoice.medicines.map((med) => ({
-      id: med.medicine_id,
+    return invoice.items.map((item) => ({
+      id: item.medicineId,
       category: "medication" as const,
-      item_name: `${med.medicine_name} (${med.dosage})`,
-      quantity: med.quantity,
-      unit_price: med.unit_price,
-      total: med.total_price,
+      item_name: `${item.medicineName} (${item.prescribedDosage})`,
+      quantity: item.prescribedQuantity,
+      unit_price: item.unitPrice,
+      total: item.totalPrice,
     }))
   }
 
-  // Load medicines from selected invoice
-  const loadMedicinesFromInvoice = (invoice: ExternalInvoice) => {
+  // Load items from selected invoice
+  const loadItemsFromInvoice = (invoice: ExternalInvoice) => {
     setSelectedInvoice(invoice)
-    const medicineItems = convertMedicinesToLineItems(invoice)
+    const medicineItems = convertItemsToLineItems(invoice)
     
     // Add default services and doctor fees if no existing line items
     if (lineItems.length === 0) {
@@ -101,14 +101,14 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
       const response = await fetch("/api/invoices", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoice_id: invoiceId, billing_status: newStatus }),
+        body: JSON.stringify({ invoice_id: invoiceId, status: newStatus }),
       })
 
       if (response.ok) {
         // Refresh the invoices data
         mutate()
         if (selectedInvoice?.invoice_id === invoiceId) {
-          setSelectedInvoice({ ...selectedInvoice, billing_status: newStatus })
+          setSelectedInvoice({ ...selectedInvoice, status: newStatus })
         }
       } else {
         console.error("Failed to update billing status")
@@ -318,18 +318,18 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                       <TableCell className="max-w-[200px] truncate">{invoice.diagnosis}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {(invoice.medicines || []).slice(0, 2).map((med) => (
-                            <Badge key={med.medicine_id} variant="secondary" className="text-xs">
-                              {med.medicine_name}
+                          {(invoice.items || []).slice(0, 2).map((item) => (
+                            <Badge key={item.medicineId} variant="secondary" className="text-xs">
+                              {item.medicineName}
                             </Badge>
                           ))}
-                          {(invoice.medicines || []).length > 2 && (
+                          {(invoice.items || []).length > 2 && (
                             <Badge variant="outline" className="text-xs">
-                              +{(invoice.medicines || []).length - 2} more
+                              +{(invoice.items || []).length - 2} more
                             </Badge>
                           )}
-                          {(!invoice.medicines || invoice.medicines.length === 0) && (
-                            <span className="text-muted-foreground text-xs">No medicines</span>
+                          {(!invoice.items || invoice.items.length === 0) && (
+                            <span className="text-muted-foreground text-xs">No items</span>
                           )}
                         </div>
                       </TableCell>
@@ -337,13 +337,13 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                         {formatCurrency(invoice.total_amount)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(invoice.billing_status)}>
-                          {invoice.billing_status}
+                        <Badge className={getStatusColor(invoice.status)}>
+                          {invoice.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Select
-                          value={invoice.billing_status}
+                          value={invoice.status}
                           onValueChange={(value) => updateBillingStatus(invoice.invoice_id, value as "pending" | "paid" | "cancelled" | "refunded")}
                           disabled={updatingStatus}
                         >
@@ -362,7 +362,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                         <Button
                           size="sm"
                           variant={selectedInvoice?.invoice_id === invoice.invoice_id ? "default" : "outline"}
-                          onClick={() => loadMedicinesFromInvoice(invoice)}
+                          onClick={() => loadItemsFromInvoice(invoice)}
                         >
                           {selectedInvoice?.invoice_id === invoice.invoice_id ? "Loaded" : "Load"}
                         </Button>

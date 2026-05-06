@@ -38,29 +38,31 @@ export interface PatientsApiResponse {
 }
 
 // External Invoice from PMS API
-export interface ExternalInvoiceMedicine {
-  medicine_id: string
-  medicine_name: string
-  dosage: string
-  quantity: number
-  unit_price: number
-  total_price: number
+export interface ExternalInvoiceItem {
+  medicineId: string
+  medicineName: string
+  prescribedDosage: string
+  prescribedQuantity: number
+  unitPrice: number
+  totalPrice: number
 }
 
 export interface ExternalInvoice {
+  _id: string
   invoice_id: string
   patient_id: string
   patient_name: string
-  appointment_id: string
-  diagnosis: string
-  medicines: ExternalInvoiceMedicine[]
+  health_record_id: string
+  items: ExternalInvoiceItem[]
+  prescription_names: string[]
+  is_released: boolean
   total_amount: number
-  billing_status: "pending" | "paid" | "cancelled" | "refunded"
-  issued_date: string
-  due_date: string
-  notes: string
+  invoice_date: string
+  status: "pending" | "paid" | "cancelled" | "refunded"
+  created_by: string
   created_at: string
   updated_at: string
+  updated_by?: string
 }
 
 export interface InvoicesApiResponse {

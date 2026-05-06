@@ -62,11 +62,11 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { invoice_id, billing_status } = body
+    const { invoice_id, status } = body
 
-    if (!invoice_id || !billing_status) {
+    if (!invoice_id || !status) {
       return NextResponse.json(
-        { error: "invoice_id and billing_status are required" },
+        { error: "invoice_id and status are required" },
         { status: 400 }
       )
     }
@@ -77,7 +77,7 @@ export async function PATCH(request: NextRequest) {
         "x-api-key": PMS_INVOICES_API_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ billing_status }),
+      body: JSON.stringify({ status }),
     })
 
     if (!response.ok) {

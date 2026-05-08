@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import useSWR from "swr"
-import { Plus, Trash2, Loader2, RefreshCw } from "lucide-react"
+import { Trash2, Loader2, RefreshCw } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -147,18 +147,6 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
     setLineItems(lineItems.filter((_, i) => i !== index))
   }
 
-  const addLineItem = () => {
-    const newItem: LineItem = {
-      id: `NEW-${Date.now()}`,
-      category: "service",
-      item_name: "New Item",
-      quantity: 1,
-      unit_price: 0,
-      total: 0,
-    }
-    setLineItems([...lineItems, newItem])
-  }
-
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case "service":
@@ -218,8 +206,8 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
             </div>
             <div className="space-y-2">
               <Label>Attending Physician</Label>
-              <Select value={attendingDoctorId} onValueChange={handlePhysicianChange}>
-                <SelectTrigger>
+              <Select value={attendingDoctorId} onValueChange={handlePhysicianChange} disabled>
+                <SelectTrigger className="bg-muted">
                   <SelectValue placeholder={attendingPhysician || "Select physician"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -233,7 +221,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
             </div>
             <div className="space-y-2">
               <Label>Ward / Room Number</Label>
-              <Input value={wardRoom} onChange={(e) => setWardRoom(e.target.value)} />
+              <Input value={wardRoom} onChange={(e) => setWardRoom(e.target.value)} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label>Date of Admission</Label>
@@ -241,6 +229,8 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                 type="date"
                 value={dateOfAdmission}
                 onChange={(e) => setDateOfAdmission(e.target.value)}
+                disabled
+                className="bg-muted"
               />
             </div>
             <div className="space-y-2">
@@ -249,6 +239,8 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                 type="date"
                 value={dateOfDischarge}
                 onChange={(e) => setDateOfDischarge(e.target.value)}
+                disabled
+                className="bg-muted"
               />
             </div>
           </div>
@@ -324,11 +316,6 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                         {formatCurrency(invoice.total_amount)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(invoice.status)}>
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
                         <Select
                           value={invoice.status}
                           onValueChange={(value) => updateBillingStatus(invoice.invoice_id, value as "pending" | "paid" | "cancelled" | "refunded")}
@@ -344,6 +331,11 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                             <SelectItem value="refunded">Refunded</SelectItem>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(invoice.status)}>
+                          {invoice.status}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -381,7 +373,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                 {lineItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No items added. Load medicines from an invoice above or add items manually.
+                      No items added. Load medicines from an invoice above.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -397,6 +389,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                           value={item.item_name}
                           onChange={(e) => updateLineItem(index, "item_name", e.target.value)}
                           className="h-8"
+                          disabled
                         />
                       </TableCell>
                       <TableCell>
@@ -406,6 +399,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                           onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
                           className="h-8 text-right"
                           min="1"
+                          disabled
                         />
                       </TableCell>
                       <TableCell>
@@ -415,6 +409,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                           onChange={(e) => updateLineItem(index, "unit_price", e.target.value)}
                           className="h-8 text-right"
                           min="0"
+                          disabled
                         />
                       </TableCell>
                       <TableCell className="text-right font-medium">
@@ -426,6 +421,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                           size="icon"
                           onClick={() => removeLineItem(index)}
                           className="h-8 w-8 text-destructive hover:text-destructive"
+                          disabled
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -436,11 +432,6 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
               </TableBody>
             </Table>
           </div>
-
-          <Button variant="outline" onClick={addLineItem} className="mt-4">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Item
-          </Button>
         </CardContent>
       </Card>
 

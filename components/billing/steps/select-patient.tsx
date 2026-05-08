@@ -186,7 +186,10 @@ export function SelectPatient({ selectedPatient, onSelectPatient, onNext }: Sele
                           <Button
                             size="sm"
                             variant={selectedPatient?.patient_id === patient.patient_id ? "default" : "outline"}
-                            onClick={() => onSelectPatient(patient)}
+                            onClick={() => {
+                              onSelectPatient(patient)
+                              onNext()
+                            }}
                           >
                             {selectedPatient?.patient_id === patient.patient_id ? "Selected" : "Select"}
                           </Button>

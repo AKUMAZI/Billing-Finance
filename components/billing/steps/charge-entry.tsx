@@ -293,10 +293,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                 </TableHeader>
                 <TableBody>
                   {patientInvoices.map((invoice) => (
-                    <TableRow 
-                      key={invoice.invoice_id}
-                      className={selectedInvoice?.invoice_id === invoice.invoice_id ? "bg-primary/5" : ""}
-                    >
+                    <TableRow key={invoice.invoice_id}>
                       <TableCell className="font-mono text-sm">{invoice.invoice_id}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{invoice.diagnosis}</TableCell>
                       <TableCell>

@@ -1,3 +1,84 @@
+// External Patient from PMS API
+export interface ExternalPatient {
+  patient_id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string
+  gender: string
+  contact_number: string
+  email_address: string
+  address: string
+  national_id: string
+  status: string
+  visit_count: number
+  last_visit_date: string | null
+  attending_physician: string
+  insurance: {
+    provider: string
+    coverage_percentage: number
+    policy_number: string
+    group_number: string
+  }
+  registration_date: string
+  updated_at: string
+}
+
+export interface PatientsApiResponse {
+  status: string
+  results: number
+  data: {
+    patients: ExternalPatient[]
+  }
+  pagination: {
+    limit: number
+    page: number
+    pages: number
+    total: number
+  }
+}
+
+// External Invoice from PMS API
+export interface ExternalInvoiceItem {
+  medicineId: string
+  medicineName: string
+  prescribedDosage: string
+  prescribedQuantity: number
+  unitPrice: number
+  totalPrice: number
+}
+
+export interface ExternalInvoice {
+  _id: string
+  invoice_id: string
+  patient_id: string
+  patient_name: string
+  health_record_id: string
+  items: ExternalInvoiceItem[]
+  prescription_names: string[]
+  is_released: boolean
+  total_amount: number
+  invoice_date: string
+  status: "pending" | "paid" | "cancelled" | "refunded"
+  created_by: string
+  created_at: string
+  updated_at: string
+  updated_by?: string
+}
+
+export interface InvoicesApiResponse {
+  status: string
+  results: number
+  data: {
+    invoices: ExternalInvoice[]
+  }
+  pagination: {
+    limit: number
+    page: number
+    pages: number
+    total: number
+  }
+}
+
 // Billing & Insurance Data Structure
 export interface Bill {
   bill_id: string
@@ -21,8 +102,14 @@ export interface Patient {
   patient_id: string
   full_name: string
   date_of_birth: string
+  gender: string
+  contact_number: string
+  status: string
   ward_room: string
   insurance_provider: string
+  insurance_coverage_percentage: number
+  insurance_policy_number: string
+  attending_physician: string
 }
 
 export interface LineItem {

@@ -17,6 +17,35 @@ interface GenerateReceiptProps {
 export function GenerateReceipt({ invoice, payment, onNewTransaction }: GenerateReceiptProps) {
   const [receipt, setReceipt] = useState<Receipt | null>(null)
 
+  // Save bill to database
+  const saveBill = async (receiptData: Receipt) => {
+    try {
+      await fetch("/api/bills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bill_id: receiptData.invoice_id.replace(/^INV-/, "BILL-"),
+          patient_id: invoice.patient_id,
+          patient_name: receiptData.patient_name,
+          billing_date: receiptData.date_time,
+          due_date: invoice.due_date || receiptData.date_time,
+          total_amount: receiptData.amount_paid,
+          services_rendered: invoice.line_items?.map((item) => item.item_name) || [],
+          insurance_provider: "PhilHealth",
+          insurance_coverage: invoice.insurance_coverage || 0,
+          patient_balance: Math.max(0, invoice.total_amount_due - receiptData.amount_paid),
+          payment_method: receiptData.payment_method,
+          payment_status: "Paid",
+          is_insurance_claimed: false,
+          visit_date: invoice.date_issued,
+          attending_doctor_id: "DOC-001",
+        }),
+      })
+    } catch (error) {
+      console.error("Failed to save bill:", error)
+    }
+  }
+
   // Send audit log to admin system
   const sendAuditLog = async (receiptData: Receipt) => {
     try {
@@ -52,7 +81,8 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
       }
       setReceipt(newReceipt)
       
-      // Send audit log when receipt is generated
+      // Save bill and send audit log when receipt is generated
+      saveBill(newReceipt)
       sendAuditLog(newReceipt)
     }
   }, [receipt, invoice, payment])

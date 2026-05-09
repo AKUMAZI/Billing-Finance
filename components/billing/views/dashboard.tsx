@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FileText, CreditCard, TrendingUp, Users, RefreshCw, X } from "lucide-react"
+import { FileText, CreditCard, TrendingUp, Users, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -322,15 +322,7 @@ export function DashboardView() {
       <Dialog open={!!selectedBill} onOpenChange={(open) => !open && setSelectedBill(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>Bill Details - {selectedBill?.bill_id}</DialogTitle>
-              <button
-                onClick={() => setSelectedBill(null)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <DialogTitle>Bill Details - {selectedBill?.bill_id}</DialogTitle>
           </DialogHeader>
 
           {selectedBill && (

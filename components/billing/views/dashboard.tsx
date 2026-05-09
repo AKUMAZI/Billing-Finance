@@ -1,7 +1,7 @@
 "use client"
 
 import { FileText, CreditCard, TrendingUp, Users, RefreshCw } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,8 @@ import useSWR from "swr"
 import type { InvoicesApiResponse, PatientsApiResponse } from "@/lib/types"
 import type { BillRecord } from "@/lib/billing/types"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const fetcher = (url: string) =>
+  fetch(url, { cache: "no-store" }).then((res) => res.json())
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-PH", {
@@ -39,10 +40,10 @@ export function DashboardView() {
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
 
   const { data: invoicesData, isLoading: invoicesLoading, mutate: mutateInvoices } = useSWR<InvoicesApiResponse>(
-    "/api/invoices?limit=50",
+    "/api/invoices?limit=50&fresh=1",
     fetcher,
     {
-      refreshInterval: 30_000,
+      refreshInterval: 10_000,
       revalidateOnFocus: true,
     }
   )
@@ -70,6 +71,38 @@ export function DashboardView() {
     fetcher
   )
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    let channel: BroadcastChannel | null = null
+
+    try {
+      channel = new BroadcastChannel("billing-dashboard")
+    } catch {
+      return
+    }
+
+    const onMessage = async (event: MessageEvent) => {
+      const data = event.data as { type?: string; bill_id?: string } | undefined
+      if (!data || data.type !== "bill_created") return
+
+      const ts = Date.now()
+      try {
+        await Promise.all([
+          mutateInvoices(fetcher(`/api/invoices?limit=50&fresh=1&_=${ts}`), { revalidate: false }),
+          mutateBills(fetcher(`/api/bills?_=${ts}`), { revalidate: false }),
+        ])
+      } catch {
+        // ignore; SWR will retry/poll anyway
+      }
+    }
+
+    channel.addEventListener("message", onMessage)
+    return () => {
+      channel?.removeEventListener("message", onMessage)
+      channel?.close()
+    }
+  }, [mutateBills, mutateInvoices])
+
   const invoices = invoicesData?.data?.invoices || []
   const patients = patientsData?.data?.patients || []
   const bills = billsData?.data || []
@@ -88,12 +121,13 @@ export function DashboardView() {
   const pendingInvoices = invoices.filter((inv) => inv.status === "pending")
   const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + inv.total_amount, 0)
 
-  const paidToday = invoices.filter((inv) => {
-    const invoiceDate = new Date(inv.invoice_date).toDateString()
+  // "Payments Today" should reflect bills/receipts generated in this app (not PMS invoice status).
+  const paidToday = bills.filter((bill) => {
+    const billDate = new Date(bill.created_at).toDateString()
     const today = new Date().toDateString()
-    return inv.status === "paid" && invoiceDate === today
+    return !bill.is_voided && bill.payment_status === "Paid" && billDate === today
   })
-  const paidTodayAmount = paidToday.reduce((sum, inv) => sum + inv.total_amount, 0)
+  const paidTodayAmount = paidToday.reduce((sum, bill) => sum + bill.patient_balance, 0)
 
   const totalPatients = patientsData?.pagination?.total || patients.length
   const activePatients = patients.filter((p) => p.status === "active").length

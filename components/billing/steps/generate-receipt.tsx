@@ -56,6 +56,17 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
     }
   }
 
+  const notifyDashboard = (message: { type: "bill_created"; bill_id: string }) => {
+    try {
+      if (typeof window === "undefined") return
+      const channel = new BroadcastChannel("billing-dashboard")
+      channel.postMessage(message)
+      channel.close()
+    } catch {
+      // ignore (BroadcastChannel not supported)
+    }
+  }
+
   useEffect(() => {
     if (!receipt) {
       const now = new Date()
@@ -107,6 +118,7 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
 
       try {
         await createBillRecord(payload)
+        notifyDashboard({ type: "bill_created", bill_id: payload.bill_id })
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to save bill record"
         setBillCreateError(message)

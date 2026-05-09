@@ -53,6 +53,7 @@ export interface ExternalInvoice {
   patient_id: string
   patient_name: string
   health_record_id: string
+  diagnosis?: string
   items: ExternalInvoiceItem[]
   prescription_names: string[]
   is_released: boolean

@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   const page = searchParams.get("page") || "1"
   const limit = searchParams.get("limit") || "10"
   const patientId = searchParams.get("patient_id")
+  const fresh = searchParams.get("fresh") === "1"
 
   if (!PMS_INVOICES_API_KEY) {
     return NextResponse.json(
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
         "x-api-key": PMS_INVOICES_API_KEY,
         "Content-Type": "application/json",
       },
-      next: { revalidate: 60 },
+      next: { revalidate: fresh ? 0 : 60 },
     })
 
     if (!response.ok) {

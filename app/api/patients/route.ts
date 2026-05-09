@@ -42,6 +42,7 @@ export async function GET(request: Request) {
     const page = searchParams.get("page") || "1"
     const limit = searchParams.get("limit") || "20"
     const search = searchParams.get("search") || ""
+    const fresh = searchParams.get("fresh") === "1"
 
     const url = new URL(PMS_API_URL)
     url.searchParams.set("page", page)
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
         "x-api-key": PMS_API_KEY as string,
         "Content-Type": "application/json",
       },
-      next: { revalidate: 60 }, // Cache for 60 seconds
+      next: { revalidate: fresh ? 0 : 60 }, // Cache for 60 seconds unless fresh=1
     })
 
     if (!response.ok) {

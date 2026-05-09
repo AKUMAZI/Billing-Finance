@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Printer, RotateCcw, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency, generateReceiptId } from "@/lib/mock-data"
 import type { Invoice, Payment, Receipt } from "@/lib/types"
+import type { CreateBillInput } from "@/lib/billing/types"
 
 interface GenerateReceiptProps {
   invoice: Invoice
@@ -16,6 +17,8 @@ interface GenerateReceiptProps {
 
 export function GenerateReceipt({ invoice, payment, onNewTransaction }: GenerateReceiptProps) {
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const billCreatedRef = useRef(false)
+  const [billCreateError, setBillCreateError] = useState<string | null>(null)
 
   // Send audit log to admin system
   const sendAuditLog = async (receiptData: Receipt) => {
@@ -33,6 +36,23 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
       })
     } catch (error) {
       console.error("Failed to send audit log:", error)
+    }
+  }
+
+  const createBillRecord = async (payload: CreateBillInput) => {
+    const res = await fetch("/api/bills", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-actor-id": "billing-system",
+        "x-actor-role": "billing_staff",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      throw new Error(text || `Failed to create bill (${res.status})`)
     }
   }
 
@@ -56,6 +76,46 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
       sendAuditLog(newReceipt)
     }
   }, [receipt, invoice, payment])
+
+  useEffect(() => {
+    if (!receipt) return
+    if (billCreatedRef.current) return
+    billCreatedRef.current = true
+
+    const run = async () => {
+      setBillCreateError(null)
+
+      const totalBeforeInsurance = invoice.total_amount_due + invoice.insurance_coverage
+      const servicesRendered = Array.from(new Set(invoice.line_items.map((li) => li.item_name))).slice(0, 20)
+
+      const payload: CreateBillInput = {
+        bill_id: receipt.invoice_id.replace(/^INV-/, "BILL-"),
+        patient_id: invoice.patient_id,
+        patient_name: invoice.patient_name,
+        visit_date: invoice.date_issued,
+        services_rendered: servicesRendered.length > 0 ? servicesRendered : ["Billing services"],
+        total_amount: totalBeforeInsurance,
+        insurance_provider: "Self-Pay",
+        insurance_coverage: invoice.insurance_coverage,
+        payment_method: receipt.payment_method,
+        payment_status: "Paid",
+        billing_date: invoice.date_issued,
+        due_date: invoice.due_date,
+        is_insurance_claimed: false,
+        attending_doctor_id: "system",
+      }
+
+      try {
+        await createBillRecord(payload)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to save bill record"
+        setBillCreateError(message)
+        console.error("Failed to create bill record:", error)
+      }
+    }
+
+    run()
+  }, [receipt, invoice])
 
   if (!receipt) return null
 
@@ -151,6 +211,11 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
               <p className="text-xs text-muted-foreground mt-2">
                 For inquiries, please contact our billing department at +63 2 8888 1234
               </p>
+              {billCreateError && (
+                <p className="text-xs text-destructive mt-3">
+                  Unable to save bill record to dashboard: {billCreateError}
+                </p>
+              )}
             </div>
           </div>
         </CardContent>

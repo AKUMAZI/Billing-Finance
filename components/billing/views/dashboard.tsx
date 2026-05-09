@@ -1,12 +1,21 @@
 "use client"
 
 import { FileText, CreditCard, TrendingUp, Users, RefreshCw } from "lucide-react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import useSWR from "swr"
 import type { InvoicesApiResponse, PatientsApiResponse } from "@/lib/types"
+import type { BillRecord } from "@/lib/billing/types"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -26,18 +35,50 @@ function formatDate(dateString: string): string {
 }
 
 export function DashboardView() {
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
+
   const { data: invoicesData, isLoading: invoicesLoading, mutate: mutateInvoices } = useSWR<InvoicesApiResponse>(
     "/api/invoices?limit=50",
-    fetcher
+    fetcher,
+    {
+      refreshInterval: 30_000,
+      revalidateOnFocus: true,
+    }
   )
 
   const { data: patientsData, isLoading: patientsLoading, mutate: mutatePatients } = useSWR<PatientsApiResponse>(
     "/api/patients?limit=50",
+    fetcher,
+    {
+      refreshInterval: 60_000,
+      revalidateOnFocus: true,
+    }
+  )
+
+  const { data: billsData, isLoading: billsLoading, mutate: mutateBills } = useSWR<{ data: BillRecord[] }>(
+    "/api/bills",
+    fetcher,
+    {
+      refreshInterval: 30_000,
+      revalidateOnFocus: true,
+    }
+  )
+
+  const { data: selectedBillData, isLoading: selectedBillLoading } = useSWR<{ data: BillRecord }>(
+    selectedBillId ? `/api/bills/${encodeURIComponent(selectedBillId)}` : null,
     fetcher
   )
 
   const invoices = invoicesData?.data?.invoices || []
   const patients = patientsData?.data?.patients || []
+  const bills = billsData?.data || []
+
+  const recentBills = useMemo(() => {
+    return [...bills]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5)
+  }, [bills])
 
   // Calculate stats from real data
   const totalRevenue = invoices
@@ -88,9 +129,18 @@ export function DashboardView() {
     },
   ]
 
-  const handleRefresh = () => {
-    mutateInvoices()
-    mutatePatients()
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    const ts = Date.now()
+    try {
+      await Promise.all([
+        mutateInvoices(fetcher(`/api/invoices?limit=50&fresh=1&_=${ts}`), { revalidate: false }),
+        mutatePatients(fetcher(`/api/patients?limit=50&fresh=1&_=${ts}`), { revalidate: false }),
+        mutateBills(fetcher(`/api/bills?_=${ts}`), { revalidate: false }),
+      ])
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   const isLoading = invoicesLoading || patientsLoading
@@ -102,8 +152,8 @@ export function DashboardView() {
           <h2 className="text-lg font-semibold">Overview</h2>
           <p className="text-sm text-muted-foreground">Real-time billing statistics from patient management system</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading || isRefreshing}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -238,6 +288,122 @@ export function DashboardView() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recently Generated Bills</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {billsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : recentBills.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No bills generated yet</p>
+          ) : (
+            <div className="space-y-2">
+              {recentBills.map((bill) => (
+                <button
+                  key={bill.bill_id}
+                  type="button"
+                  className="w-full text-left flex items-center justify-between rounded-lg border bg-background px-4 py-3 hover:bg-muted/50 transition-colors"
+                  onClick={() => setSelectedBillId(bill.bill_id)}
+                >
+                  <div className="space-y-0.5">
+                    <p className="font-mono font-medium">{bill.bill_id}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {bill.patient_name} · {formatDate(bill.created_at)}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className={bill.is_voided ? "text-red-600 border-red-600" : ""}>
+                    {bill.is_voided ? "voided" : bill.payment_status}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={selectedBillId !== null} onOpenChange={(open) => (!open ? setSelectedBillId(null) : undefined)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Receipt Details</DialogTitle>
+            <DialogDescription>
+              {selectedBillId ? `Bill ID: ${selectedBillId}` : "Bill details"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!selectedBillId ? null : selectedBillLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-5 w-64" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ) : selectedBillData?.data ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Patient</p>
+                  <p className="font-medium">{selectedBillData.data.patient_name}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Visit Date</p>
+                  <p className="font-medium">{formatDate(selectedBillData.data.visit_date)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Billing Date</p>
+                  <p className="font-medium">{formatDate(selectedBillData.data.billing_date)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Due Date</p>
+                  <p className="font-medium">{formatDate(selectedBillData.data.due_date)}</p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Amount</span>
+                  <span className="font-semibold">{formatCurrency(selectedBillData.data.total_amount)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Insurance Coverage</span>
+                  <span className="font-medium">{formatCurrency(selectedBillData.data.insurance_coverage)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Patient Balance</span>
+                  <span className="font-medium">{formatCurrency(selectedBillData.data.patient_balance)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Payment Method</span>
+                  <span className="font-medium">{selectedBillData.data.payment_method}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge variant="outline" className={selectedBillData.data.is_voided ? "text-red-600 border-red-600" : ""}>
+                    {selectedBillData.data.is_voided ? "voided" : selectedBillData.data.payment_status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Services Rendered</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedBillData.data.services_rendered.map((service) => (
+                    <Badge key={service} variant="outline">
+                      {service}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Unable to load bill details.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

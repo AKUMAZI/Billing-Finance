@@ -8,6 +8,8 @@ const INVOICES_API_KEY = process.env.INVOICES_API_KEY || "sk_live_invoices_defau
 
 function validateApiKey(request: NextRequest): boolean {
   const apiKey = request.headers.get("x-api-key") || request.headers.get("authorization")?.replace("Bearer ", "")
+  console.log("[v0] API Key validation - Received:", apiKey ? apiKey.substring(0, 10) + "..." : "missing")
+  console.log("[v0] API Key validation - Expected:", INVOICES_API_KEY ? INVOICES_API_KEY.substring(0, 10) + "..." : "missing")
   return apiKey === INVOICES_API_KEY
 }
 

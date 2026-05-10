@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth"
-
-// In-memory storage for invoices (in production, this would be a database)
-let invoicesStore: Record<string, any> = {}
-
-
+import { listInvoices, upsertInvoice } from "@/lib/invoices-store"
 
 // Invoice creation/storage endpoint
 export async function POST(request: NextRequest) {
@@ -61,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Store the invoice
-    invoicesStore[invoice.invoice_id] = invoice
+    upsertInvoice(invoice)
 
     return NextResponse.json(
       {
@@ -89,7 +85,7 @@ export async function POST(request: NextRequest) {
 
 // Retrieve invoices
 export async function GET(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/invoices" })
+  const authResult = validateApiKey(request, { routeName: "/api/invoices", requireApiKey: false })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }
@@ -103,7 +99,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Filter invoices based on query parameters
-    let filteredInvoices = Object.values(invoicesStore)
+    let filteredInvoices = listInvoices()
 
     if (patientId) {
       filteredInvoices = filteredInvoices.filter(
@@ -170,7 +166,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Check if invoice exists
-    const invoice = invoicesStore[invoice_id]
+    const invoice = listInvoices().find((inv) => inv.invoice_id === invoice_id)
     if (!invoice) {
       return NextResponse.json(
         {
@@ -187,6 +183,7 @@ export async function PATCH(request: NextRequest) {
     invoice.status = status
     invoice.updated_at = new Date().toISOString()
     invoice.updated_by = body.updated_by || "system"
+    upsertInvoice(invoice)
 
     return NextResponse.json({
       status: "success",

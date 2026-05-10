@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth"
+import { deleteInvoice, getInvoice } from "@/lib/invoices-store"
 
 // Note: In production, this would fetch from a database
 // For now, it references the in-memory store from the parent route
 // This is a temporary solution - replace with actual database queries
 
-interface RouteContext {
-  params: Promise<{ invoiceId: string }>
-}
-
-// Helper to access the invoices store
-// In production, import from a database service
-let invoicesStore: Record<string, any> = {}
-
-export async function GET(request: NextRequest, context: RouteContext) {
-  const authResult = validateApiKey(request, { routeName: "/api/invoices/[invoiceId]" })
+export async function GET(request: NextRequest, context: RouteContext<"/api/invoices/[invoiceId]">) {
+  const authResult = validateApiKey(request, { routeName: "/api/invoices/[invoiceId]", requireApiKey: false })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }
@@ -35,10 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
-    // In production, query the database
-    // For now, we'll return a sample response structure
-    // TODO: Replace with actual database query
-    const invoice = invoicesStore[invoiceId]
+    const invoice = getInvoice(invoiceId)
 
     if (!invoice) {
       return NextResponse.json(
@@ -75,7 +65,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext<"/api/invoices/[invoiceId]">) {
   const authResult = validateApiKey(request, { routeName: "/api/invoices/[invoiceId]" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
@@ -97,9 +87,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       )
     }
 
-    // Check if invoice exists
-    const invoice = invoicesStore[invoiceId]
-    if (!invoice) {
+    const deleted = deleteInvoice(invoiceId)
+    if (!deleted) {
       return NextResponse.json(
         {
           status: "error",
@@ -110,9 +99,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         { status: 404, headers }
       )
     }
-
-    // Delete the invoice
-    delete invoicesStore[invoiceId]
 
     return NextResponse.json(
       {

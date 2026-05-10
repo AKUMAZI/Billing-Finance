@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   FilePlus,
+  Receipt,
   FileText,
   CreditCard,
   ShieldCheck,
@@ -17,6 +18,7 @@ interface SidebarProps {
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "new-bill", label: "New Bill", icon: FilePlus },
+  { id: "receipts", label: "Receipts", icon: Receipt },
   { id: "invoices", label: "Invoices", icon: FileText },
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "insurance", label: "Insurance Claims", icon: ShieldCheck },

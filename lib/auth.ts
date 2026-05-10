@@ -44,6 +44,14 @@ export function validateApiKey(
     const apiKey = apiKeyHeader || bearerToken
 
     if (!apiKey) {
+      if (!requireApiKey) {
+        return {
+          isValid: true,
+          keyType: "primary",
+          keyIdentifier: "none",
+          requiresWarning: false,
+        }
+      }
       return {
         isValid: false,
         keyType: "primary",

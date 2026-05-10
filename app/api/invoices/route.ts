@@ -1,101 +1,185 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const PMS_INVOICES_API_URL = "https://pms-backend-kohl.vercel.app/api/v1/external/invoices"
-const PMS_INVOICES_API_KEY = process.env.PMS_INVOICES_API_KEY
+// In-memory storage for invoices (in production, this would be a database)
+let invoicesStore: Record<string, any> = {}
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const page = searchParams.get("page") || "1"
-  const limit = searchParams.get("limit") || "10"
-  const patientId = searchParams.get("patient_id")
-  const fresh = searchParams.get("fresh") === "1"
-
-  if (!PMS_INVOICES_API_KEY) {
-    return NextResponse.json(
-      { error: "PMS_INVOICES_API_KEY is not configured" },
-      { status: 500 }
-    )
-  }
-
+// Invoice creation/storage endpoint
+export async function POST(request: NextRequest) {
   try {
-    const url = new URL(PMS_INVOICES_API_URL)
-    url.searchParams.set("page", page)
-    url.searchParams.set("limit", limit)
-    if (patientId) {
-      url.searchParams.set("patient_id", patientId)
-    }
+    const body = await request.json()
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        "x-api-key": PMS_INVOICES_API_KEY,
-        "Content-Type": "application/json",
-      },
-      next: { revalidate: fresh ? 0 : 60 },
-    })
+    // Validate required fields following PMS invoice structure
+    const requiredFields = [
+      "invoice_id",
+      "patient_id",
+      "patient_name",
+      "items",
+      "total_amount",
+    ]
+    const missingFields = requiredFields.filter((field) => !body[field])
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("PMS Invoices API error:", response.status, errorText)
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { error: "Failed to fetch invoices from PMS" },
-        { status: response.status }
+        {
+          status: "error",
+          error_code: "MISSING_REQUIRED_FIELDS",
+          message: `Missing required fields: ${missingFields.join(", ")}`,
+          details: { missingFields },
+        },
+        { status: 400 }
       )
     }
 
-    const data = await response.json()
-    return NextResponse.json(data)
-  } catch (error) {
-    console.error("Error fetching invoices:", error)
+    // Normalize the invoice data to PMS invoice structure
+    const invoice = {
+      _id: body._id || body.invoice_id,
+      invoice_id: body.invoice_id,
+      patient_id: body.patient_id,
+      patient_name: body.patient_name,
+      health_record_id: body.health_record_id || body.invoice_id,
+      diagnosis: body.diagnosis || "",
+      items: body.items || [], // Array of { medicineId, medicineName, prescribedDosage, prescribedQuantity, unitPrice, totalPrice }
+      prescription_names: body.prescription_names || [],
+      is_released: body.is_released !== undefined ? body.is_released : false,
+      total_amount: body.total_amount,
+      invoice_date: body.invoice_date || new Date().toISOString(),
+      status: body.status || "pending", // "pending" | "paid" | "cancelled" | "refunded"
+      created_by: body.created_by || "system",
+      created_at: body.created_at || new Date().toISOString(),
+      updated_at: body.updated_at || new Date().toISOString(),
+      updated_by: body.updated_by,
+    }
+
+    // Store the invoice
+    invoicesStore[invoice.invoice_id] = invoice
+
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        status: "success",
+        message: "Invoice created successfully",
+        data: {
+          invoice,
+        },
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error("Error creating invoice:", error)
+    return NextResponse.json(
+      {
+        status: "error",
+        error_code: "SYSTEM_FAILURE",
+        message: "Failed to create invoice",
+        details: { error: error instanceof Error ? error.message : "Unknown error" },
+      },
       { status: 500 }
     )
   }
 }
 
-export async function PATCH(request: NextRequest) {
-  if (!PMS_INVOICES_API_KEY) {
+// Retrieve invoices
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
+  const page = parseInt(searchParams.get("page") || "1")
+  const limit = parseInt(searchParams.get("limit") || "10")
+  const patientId = searchParams.get("patient_id")
+
+  try {
+    // Filter invoices based on query parameters
+    let filteredInvoices = Object.values(invoicesStore)
+
+    if (patientId) {
+      filteredInvoices = filteredInvoices.filter(
+        (inv) => inv.patient_id === patientId
+      )
+    }
+
+    // Pagination
+    const total = filteredInvoices.length
+    const pages = Math.ceil(total / limit)
+    const start = (page - 1) * limit
+    const invoices = filteredInvoices.slice(start, start + limit)
+
+    return NextResponse.json({
+      status: "success",
+      results: invoices.length,
+      data: {
+        invoices,
+      },
+      pagination: {
+        limit,
+        page,
+        pages,
+        total,
+      },
+    })
+  } catch (error) {
+    console.error("Error fetching invoices:", error)
     return NextResponse.json(
-      { error: "PMS_INVOICES_API_KEY is not configured" },
+      {
+        status: "error",
+        error_code: "SYSTEM_FAILURE",
+        message: "Failed to fetch invoices",
+        details: { error: error instanceof Error ? error.message : "Unknown error" },
+      },
       { status: 500 }
     )
   }
+}
 
+// Update invoice status
+export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
     const { invoice_id, status } = body
 
     if (!invoice_id || !status) {
       return NextResponse.json(
-        { error: "invoice_id and status are required" },
+        {
+          status: "error",
+          error_code: "MISSING_REQUIRED_FIELDS",
+          message: "invoice_id and status are required",
+          details: { missingFields: !invoice_id ? ["invoice_id"] : ["status"] },
+        },
         { status: 400 }
       )
     }
 
-    const response = await fetch(`${PMS_INVOICES_API_URL}/${invoice_id}`, {
-      method: "PATCH",
-      headers: {
-        "x-api-key": PMS_INVOICES_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ status }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("PMS Invoices API PATCH error:", response.status, errorText)
+    // Check if invoice exists
+    const invoice = invoicesStore[invoice_id]
+    if (!invoice) {
       return NextResponse.json(
-        { error: "Failed to update invoice status" },
-        { status: response.status }
+        {
+          status: "error",
+          error_code: "NOT_FOUND",
+          message: `Invoice with id ${invoice_id} not found`,
+          details: { invoice_id },
+        },
+        { status: 404 }
       )
     }
 
-    const data = await response.json()
-    return NextResponse.json(data)
+    // Update the invoice
+    invoice.status = status
+    invoice.updated_at = new Date().toISOString()
+    invoice.updated_by = body.updated_by || "system"
+
+    return NextResponse.json({
+      status: "success",
+      message: "Invoice updated successfully",
+      data: {
+        invoice,
+      },
+    })
   } catch (error) {
     console.error("Error updating invoice:", error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        status: "error",
+        error_code: "SYSTEM_FAILURE",
+        message: "Failed to update invoice",
+        details: { error: error instanceof Error ? error.message : "Unknown error" },
+      },
       { status: 500 }
     )
   }

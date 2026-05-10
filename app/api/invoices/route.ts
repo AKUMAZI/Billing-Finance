@@ -3,14 +3,21 @@ import { NextRequest, NextResponse } from "next/server"
 // In-memory storage for invoices (in production, this would be a database)
 let invoicesStore: Record<string, any> = {}
 
-// API Key validation
-const INVOICES_API_KEY = process.env.INVOICES_API_KEY || "sk_live_invoices_default_key_change_in_production"
+// API Key validation - this will be set via environment variable
+function getApiKey(): string {
+  const key = process.env.INVOICES_API_KEY
+  if (!key) {
+    console.warn("[v0] INVOICES_API_KEY environment variable is not set!")
+  }
+  return key || ""
+}
 
 function validateApiKey(request: NextRequest): boolean {
   const apiKey = request.headers.get("x-api-key") || request.headers.get("authorization")?.replace("Bearer ", "")
+  const expectedKey = getApiKey()
   console.log("[v0] API Key validation - Received:", apiKey ? apiKey.substring(0, 10) + "..." : "missing")
-  console.log("[v0] API Key validation - Expected:", INVOICES_API_KEY ? INVOICES_API_KEY.substring(0, 10) + "..." : "missing")
-  return apiKey === INVOICES_API_KEY
+  console.log("[v0] API Key validation - Expected:", expectedKey ? expectedKey.substring(0, 10) + "..." : "not set")
+  return apiKey === expectedKey && expectedKey !== ""
 }
 
 function unauthorizedResponse() {

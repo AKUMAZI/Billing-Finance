@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency, formatDate, generateInvoiceId } from "@/lib/mock-data"
+import { formatCurrency, formatDate, generateInvoiceId } from "@/lib/utils"
 import type { Patient, ChargeEntry, TaxComputation, Invoice } from "@/lib/types"
 
 interface GenerateInvoiceProps {

@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/mock-data"
+import { formatCurrency } from "@/lib/utils"
 import type { Patient, ChargeEntry, TaxComputation as TaxComputationType } from "@/lib/types"
 
 interface TaxComputationProps {

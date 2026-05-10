@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import useSWR from "swr"
-import { Trash2, Loader2, RefreshCw } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,10 +24,24 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  mockPhysicians,
   formatCurrency,
-} from "@/lib/mock-data"
+} from "@/lib/utils"
 import type { Patient, ChargeEntry as ChargeEntryType, LineItem, InvoicesApiResponse, ExternalInvoice } from "@/lib/types"
+
+interface PatientMedicationsResponse {
+  status: string
+  data: {
+    patientId: string
+    medications: Array<{
+      id: string
+      medicineName: string
+      dosage: string
+      quantity: number
+      frequency: string
+      prescriptionDate: string
+    }>
+  }
+}
 
 interface ChargeEntryProps {
   patient: Patient
@@ -46,63 +60,39 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
   const [dateOfAdmission, setDateOfAdmission] = useState(chargeEntry?.date_of_admission || "2024-03-20")
   const [dateOfDischarge, setDateOfDischarge] = useState(chargeEntry?.date_of_discharge || "2024-03-23")
   const [lineItems, setLineItems] = useState<LineItem[]>(chargeEntry?.line_items || [])
-  const [updatingStatus, setUpdatingStatus] = useState(false)
 
-  // Fetch invoices for the selected patient
-  const { data: invoicesData, error: invoicesError, isLoading: invoicesLoading, mutate } = useSWR<InvoicesApiResponse>(
-    `/api/invoices?patient_id=${patient.patient_id}&limit=50`,
+  const physicians = [
+    { id: "DOC-0045", name: "Dr. Roberto Mendoza" },
+    { id: "DOC-0046", name: "Dr. Cristina Lim" },
+    { id: "DOC-0047", name: "Dr. Antonio Cruz" },
+    { id: "DOC-0048", name: "Dr. Maribel Santos" },
+  ]
+
+  // Fetch patient medications from PMS
+  const { data: medicationsData, error: medicationsError, isLoading: medicationsLoading } = useSWR<PatientMedicationsResponse>(
+    `/api/patients/${patient.patient_id}/medications`,
     fetcher,
     { revalidateOnFocus: false }
   )
 
-  const patientInvoices = invoicesData?.data?.invoices || []
+  const patientMedications = medicationsData?.data?.medications || []
 
-  // Auto-load all patient invoices into line items when data is available
+  // Auto-load patient medications into line items when data is available
   useEffect(() => {
-    if (patientInvoices.length > 0 && lineItems.length === 0) {
-      const allMedicineItems: LineItem[] = []
-      patientInvoices.forEach((invoice, invoiceIndex) => {
-        if (invoice.items && invoice.items.length > 0) {
-          invoice.items.forEach((item, itemIndex) => {
-            allMedicineItems.push({
-              id: `${invoice.invoice_id}-${item.medicineId}-${itemIndex}-${invoiceIndex}`,
-              category: "medication" as const,
-              item_name: `${item.medicineName} (${item.prescribedDosage})`,
-              quantity: item.prescribedQuantity,
-              unit_price: item.unitPrice,
-              total: item.totalPrice,
-            })
-          })
-        }
-      })
-      if (allMedicineItems.length > 0) {
-        setLineItems(allMedicineItems)
+    if (patientMedications.length > 0 && lineItems.length === 0) {
+      const medicineItems: LineItem[] = patientMedications.map((med, index) => ({
+        id: `${med.id}-${index}`,
+        category: "medication" as const,
+        item_name: `${med.medicineName} (${med.dosage})`,
+        quantity: med.quantity,
+        unit_price: 0, // Price will be set manually by user
+        total: 0,
+      }))
+      if (medicineItems.length > 0) {
+        setLineItems(medicineItems)
       }
     }
-  }, [patientInvoices, lineItems.length])
-
-  // Update billing status on the external PMS system
-  const updateBillingStatus = async (invoiceId: string, newStatus: "pending" | "paid" | "cancelled" | "refunded") => {
-    setUpdatingStatus(true)
-    try {
-      const response = await fetch("/api/invoices", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoice_id: invoiceId, status: newStatus }),
-      })
-
-      if (response.ok) {
-        // Refresh the invoices data
-        mutate()
-      } else {
-        console.error("Failed to update billing status")
-      }
-    } catch (error) {
-      console.error("Error updating billing status:", error)
-    } finally {
-      setUpdatingStatus(false)
-    }
-  }
+  }, [patientMedications, lineItems.length])
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0)
 
@@ -121,7 +111,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
   }, [attendingPhysician, attendingDoctorId, wardRoom, dateOfAdmission, dateOfDischarge, lineItems, patient, subtotal, onUpdateChargeEntry])
 
   const handlePhysicianChange = (value: string) => {
-    const physician = mockPhysicians.find((p) => p.id === value)
+    const physician = physicians.find((p) => p.id === value)
     if (physician) {
       setAttendingPhysician(physician.name)
       setAttendingDoctorId(physician.id)
@@ -173,21 +163,6 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "paid":
-        return "bg-green-100 text-green-800 border-green-300"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300"
-      case "cancelled":
-        return "bg-red-100 text-red-800 border-red-300"
-      case "refunded":
-        return "bg-purple-100 text-purple-800 border-purple-300"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300"
-    }
-  }
-
   return (
     <div className="space-y-6">
       <Card>
@@ -211,7 +186,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                   <SelectValue placeholder={attendingPhysician || "Select physician"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockPhysicians.map((physician) => (
+                  {physicians.map((physician) => (
                     <SelectItem key={physician.id} value={physician.id}>
                       {physician.name}
                     </SelectItem>
@@ -247,104 +222,6 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
         </CardContent>
       </Card>
 
-      {/* Patient Invoices from PMS */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Patient Invoices (from PMS)</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => mutate()} disabled={invoicesLoading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${invoicesLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {invoicesLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-muted-foreground">Loading invoices...</span>
-            </div>
-          ) : invoicesError ? (
-            <div className="text-center py-8 text-destructive">
-              Failed to load invoices. Please try again.
-            </div>
-          ) : patientInvoices.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No invoices found for this patient.
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                    <TableRow className="bg-muted/50">
-                    <TableHead>Invoice ID</TableHead>
-                    <TableHead>Diagnosis</TableHead>
-                    <TableHead>Medicines</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Update Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {patientInvoices.map((invoice) => (
-                    <TableRow key={invoice.invoice_id}>
-                      <TableCell className="font-mono text-sm">{invoice.invoice_id}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{invoice.diagnosis}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(() => {
-                            const uniqueMedicines = [...new Map((invoice.items || []).map(item => [item.medicineName, item])).values()]
-                            return (
-                              <>
-                                {uniqueMedicines.slice(0, 2).map((item) => (
-                                  <Badge key={item.medicineId} variant="secondary" className="text-xs">
-                                    {item.medicineName}
-                                  </Badge>
-                                ))}
-                                {uniqueMedicines.length > 2 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{uniqueMedicines.length - 2} more
-                                  </Badge>
-                                )}
-                                {uniqueMedicines.length === 0 && (
-                                  <span className="text-muted-foreground text-xs">No items</span>
-                                )}
-                              </>
-                            )
-                          })()}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(invoice.total_amount)}
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={invoice.status}
-                          onValueChange={(value) => updateBillingStatus(invoice.invoice_id, value as "pending" | "paid" | "cancelled" | "refunded")}
-                        >
-                          <SelectTrigger className="w-[120px] h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="paid">Paid</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                            <SelectItem value="refunded">Refunded</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(invoice.status)}>
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Line Items</CardTitle>
@@ -372,7 +249,7 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
                 {lineItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No items added. Load medicines from an invoice above.
+                      No medicines found for this patient.
                     </TableCell>
                   </TableRow>
                 ) : (

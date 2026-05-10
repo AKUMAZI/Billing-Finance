@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { formatDate } from "@/lib/mock-data"
+import { formatDate } from "@/lib/utils"
 import type { Patient, ExternalPatient, PatientsApiResponse } from "@/lib/types"
 
 interface SelectPatientProps {

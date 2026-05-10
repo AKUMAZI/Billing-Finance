@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { formatCurrency } from "@/lib/mock-data"
+import { formatCurrency } from "@/lib/utils"
 import type { Invoice, Payment } from "@/lib/types"
 
 interface ProcessPaymentProps {

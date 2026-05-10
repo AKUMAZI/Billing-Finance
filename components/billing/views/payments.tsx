@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/mock-data"
+import { formatCurrency } from "@/lib/utils"
 import type { InvoicesApiResponse } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())

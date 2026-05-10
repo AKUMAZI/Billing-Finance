@@ -4,7 +4,7 @@ import { createBill, formatServiceError, listBills } from "@/lib/billing/service
 import { CreateBillInput } from "@/lib/billing/types";
 
 export async function GET(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/bills", requireApiKey: false });
+  const authResult = validateApiKey(request, { routeName: "/api/bills" });
   if (!authResult.isValid) {
     return unauthorizedResponse();
   }
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/bills", requireApiKey: false });
+  const authResult = validateApiKey(request, { routeName: "/api/bills" });
   if (!authResult.isValid) {
     return unauthorizedResponse();
   }

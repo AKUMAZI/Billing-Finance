@@ -13,7 +13,7 @@ interface RouteContext {
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const authResult = validateApiKey(request, { routeName: "/api/bills/[billId]", requireApiKey: false });
+  const authResult = validateApiKey(request, { routeName: "/api/bills/[billId]" });
   if (!authResult.isValid) {
     return unauthorizedResponse();
   }

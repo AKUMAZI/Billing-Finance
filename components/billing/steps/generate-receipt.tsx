@@ -19,6 +19,7 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const billCreatedRef = useRef(false)
   const [billCreateError, setBillCreateError] = useState<string | null>(null)
+  const billingApiKey = process.env.NEXT_PUBLIC_BILLING_API_KEY
 
   // Send audit log to admin system
   const sendAuditLog = async (receiptData: Receipt) => {
@@ -44,6 +45,7 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(billingApiKey ? { "x-api-key": billingApiKey } : {}),
         "x-actor-id": "billing-system",
         "x-actor-role": "billing_staff",
       },

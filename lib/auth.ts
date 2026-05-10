@@ -21,6 +21,29 @@ export interface AuthConfig {
   routeName?: string
 }
 
+function getKeyConfigForRoute(routeName: string | undefined): {
+  primaryKey?: string
+  secondaryKey?: string
+  legacyKey: string
+} {
+  const route = routeName ?? ""
+
+  if (route.startsWith("/api/bills")) {
+    return {
+      primaryKey: process.env.BILLING_API_KEY_PROD || process.env.BILLING_API_KEY,
+      secondaryKey: process.env.BILLING_API_KEY_SECONDARY,
+      legacyKey: process.env.BILLING_API_KEY_LEGACY || "sk_live_billing_default_key_change_in_production",
+    }
+  }
+
+  // Default: invoices keyset
+  return {
+    primaryKey: process.env.INVOICES_API_KEY_PROD || process.env.INVOICES_API_KEY,
+    secondaryKey: process.env.INVOICES_API_KEY_SECONDARY,
+    legacyKey: process.env.INVOICES_API_KEY_LEGACY || "sk_live_invoices_default_key_change_in_production",
+  }
+}
+
 /**
  * Validates API key from request headers (x-api-key or Authorization Bearer)
  * Supports multiple concurrent keys for rotation scenarios
@@ -61,10 +84,8 @@ export function validateApiKey(
       }
     }
 
-    // Load environment variables
-    const primaryKey = process.env.INVOICES_API_KEY_PROD || process.env.INVOICES_API_KEY
-    const secondaryKey = process.env.INVOICES_API_KEY_SECONDARY
-    const legacyKey = process.env.INVOICES_API_KEY_LEGACY || "sk_live_invoices_default_key_change_in_production"
+    // Load environment variables for this route
+    const { primaryKey, secondaryKey, legacyKey } = getKeyConfigForRoute(routeName)
 
     // Validate against primary key (constant-time comparison)
     if (primaryKey && constantTimeCompare(apiKey, primaryKey)) {

@@ -1,5 +1,3 @@
-import { mockBills } from "@/lib/mock-data"
-
 export type InvoiceItem = {
   medicineId?: string
   medicineName?: string
@@ -37,46 +35,9 @@ declare global {
   var __invoicesStore: InvoicesStore | undefined
 }
 
-function seedInvoices(): InvoicesStore {
-  const now = new Date().toISOString()
-
-  const seeded: InvoicesStore = {}
-  for (const bill of mockBills) {
-    const invoiceId = bill.bill_id.replace(/^BILL-/, "INV-")
-    const services = bill.services_rendered ?? []
-    const perService = services.length > 0 ? Number(bill.total_amount) / services.length : Number(bill.total_amount)
-
-    const invoice: Invoice = {
-      _id: invoiceId,
-      invoice_id: invoiceId,
-      patient_id: bill.patient_id,
-      patient_name: bill.patient_name,
-      health_record_id: invoiceId,
-      diagnosis: "",
-      items: services.map((serviceName) => ({
-        serviceName,
-        quantity: 1,
-        unitPrice: perService,
-        totalPrice: perService,
-      })),
-      prescription_names: [],
-      is_released: false,
-      total_amount: Number(bill.total_amount),
-      invoice_date: bill.billing_date ? new Date(bill.billing_date).toISOString() : now,
-      status: (bill.payment_status?.toLowerCase() === "paid" ? "paid" : "pending") as Invoice["status"],
-      created_by: "seed",
-      created_at: now,
-      updated_at: now,
-    }
-
-    seeded[invoice.invoice_id] = invoice
-  }
-  return seeded
-}
-
 function getGlobalStore(): InvoicesStore {
   if (!globalThis.__invoicesStore) {
-    globalThis.__invoicesStore = seedInvoices()
+    globalThis.__invoicesStore = {}
   }
   return globalThis.__invoicesStore
 }

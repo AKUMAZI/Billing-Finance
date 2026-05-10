@@ -34,6 +34,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/contexts/auth-context"
 
 interface HeaderProps {
   title: string
@@ -90,6 +91,7 @@ type NotificationSettings = z.infer<typeof notificationSettingsSchema>
 type ProfileData = z.infer<typeof profileSchema>
 
 export function Header({ title }: HeaderProps) {
+  const { logout } = useAuth()
   const router = useRouter()
   const [notifications, setNotifications] = useState(mockNotifications)
   const [openNotifications, setOpenNotifications] = useState(false)
@@ -155,7 +157,7 @@ export function Header({ title }: HeaderProps) {
   const unreadCount = notifications.filter(n => !n.read).length
 
   const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated")
+    logout()
     router.push("/")
   }
 

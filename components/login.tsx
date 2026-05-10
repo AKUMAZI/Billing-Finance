@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Stethoscope, Shield, Heart, Activity, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
+  const { login } = useAuth()
 
   const {
     register,
@@ -43,13 +45,9 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    const success = await login(data.email, data.password)
 
-    // Mock authentication - in real app, this would be an API call
-    if (data.email === "billing@finance.com" && data.password === "password123") {
-      // Store auth state (in real app, use proper auth)
-      localStorage.setItem("isAuthenticated", "true")
+    if (success) {
       router.push("/dashboard")
     } else {
       setError("Invalid email or password")

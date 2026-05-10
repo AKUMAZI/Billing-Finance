@@ -43,9 +43,22 @@ export function InvoicesView() {
     }
   )
 
+  // Fetch all invoices for accurate summary calculations
+  const { data: allInvoicesData } = useSWR<InvoicesApiResponse>(
+    `/api/invoices?page=1&limit=1000`, // Fetch more data for summaries
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      keepPreviousData: true,
+    }
+  )
+
   const invoices = data?.data?.invoices || []
   const totalPages = data?.pagination?.pages || 1
   const totalResults = data?.pagination?.total || 0
+
+  // Use all invoices for accurate summary calculations
+  const allInvoices = allInvoicesData?.data?.invoices || invoices
 
   const filteredInvoices = invoices.filter(
     (invoice) =>
@@ -178,7 +191,7 @@ export function InvoicesView() {
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Paid</p>
             <p className="text-2xl font-bold mt-1 text-green-600">
-              {invoices.filter((i) => i.status === "paid").length}
+              {allInvoices.filter((i) => i.status === "paid").length}
             </p>
           </CardContent>
         </Card>
@@ -186,7 +199,7 @@ export function InvoicesView() {
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Pending</p>
             <p className="text-2xl font-bold mt-1 text-amber-600">
-              {invoices.filter((i) => i.status === "pending").length}
+              {allInvoices.filter((i) => i.status === "pending").length}
             </p>
           </CardContent>
         </Card>
@@ -194,7 +207,7 @@ export function InvoicesView() {
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Total Amount</p>
             <p className="text-2xl font-bold mt-1">
-              {formatCurrency(invoices.reduce((sum, i) => sum + i.total_amount, 0))}
+              {formatCurrency(allInvoices.reduce((sum, i) => sum + i.total_amount, 0))}
             </p>
           </CardContent>
         </Card>

@@ -1,34 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
+import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth"
 
 // In-memory storage for invoices (in production, this would be a database)
 let invoicesStore: Record<string, any> = {}
-
-// API Key validation
-const INVOICES_API_KEY = process.env.INVOICES_API_KEY || "sk_live_invoices_default_key_change_in_production"
-
-function validateApiKey(request: NextRequest): boolean {
-  const apiKey = request.headers.get("x-api-key") || request.headers.get("authorization")?.replace("Bearer ", "")
-  return apiKey === INVOICES_API_KEY
-}
-
-function unauthorizedResponse() {
-  return NextResponse.json(
-    {
-      status: "error",
-      error_code: "UNAUTHORIZED",
-      message: "Invalid or missing API key",
-    },
-    { status: 401 }
-  )
-}
 
 
 
 // Invoice creation/storage endpoint
 export async function POST(request: NextRequest) {
-  if (!validateApiKey(request)) {
+  const authResult = validateApiKey(request, { routeName: "/api/invoices" })
+  if (!authResult.isValid) {
     return unauthorizedResponse()
   }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {}
 
   try {
     const body = await request.json()
@@ -86,7 +71,7 @@ export async function POST(request: NextRequest) {
           invoice,
         },
       },
-      { status: 201 }
+      { status: 201, headers }
     )
   } catch (error) {
     console.error("Error creating invoice:", error)
@@ -104,9 +89,12 @@ export async function POST(request: NextRequest) {
 
 // Retrieve invoices
 export async function GET(request: NextRequest) {
-  if (!validateApiKey(request)) {
+  const authResult = validateApiKey(request, { routeName: "/api/invoices" })
+  if (!authResult.isValid) {
     return unauthorizedResponse()
   }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {}
 
   const searchParams = request.nextUrl.searchParams
   const page = parseInt(searchParams.get("page") || "1")
@@ -141,7 +129,7 @@ export async function GET(request: NextRequest) {
         pages,
         total,
       },
-    })
+    }, { headers })
   } catch (error) {
     console.error("Error fetching invoices:", error)
     return NextResponse.json(
@@ -158,9 +146,12 @@ export async function GET(request: NextRequest) {
 
 // Update invoice status
 export async function PATCH(request: NextRequest) {
-  if (!validateApiKey(request)) {
+  const authResult = validateApiKey(request, { routeName: "/api/invoices" })
+  if (!authResult.isValid) {
     return unauthorizedResponse()
   }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {}
 
   try {
     const body = await request.json()
@@ -203,7 +194,7 @@ export async function PATCH(request: NextRequest) {
       data: {
         invoice,
       },
-    })
+    }, { headers })
   } catch (error) {
     console.error("Error updating invoice:", error)
     return NextResponse.json(

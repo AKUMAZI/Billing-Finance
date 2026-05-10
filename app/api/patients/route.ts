@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth"
 
 const PMS_API_URL = "https://pms-backend-kohl.vercel.app/api/v1/external/patients"
 const PMS_API_KEY = process.env.PMS_API_KEY
@@ -36,7 +37,14 @@ export interface PatientsApiResponse {
   patients: ExternalPatient[]
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const authResult = validateApiKey(request, { routeName: "/api/patients" })
+  if (!authResult.isValid) {
+    return unauthorizedResponse()
+  }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {}
+
   try {
     const { searchParams } = new URL(request.url)
     const page = searchParams.get("page") || "1"
@@ -62,17 +70,17 @@ export async function GET(request: Request) {
     if (!response.ok) {
       return NextResponse.json(
         { error: "Failed to fetch patients from external API" },
-        { status: response.status }
+        { status: response.status, headers }
       )
     }
 
     const data: PatientsApiResponse = await response.json()
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers })
   } catch (error) {
     console.error("Error fetching patients:", error)
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500, headers }
     )
   }
 }

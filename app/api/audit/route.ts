@@ -1,15 +1,23 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth"
 
 const AUDIT_BASE_URL = "https://admin-subystem.onrender.com/admin/api/audit/ingest"
 const AUDIT_API_KEY = process.env.AUDIT_API_KEY
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const authResult = validateApiKey(request, { routeName: "/api/audit" })
+  if (!authResult.isValid) {
+    return unauthorizedResponse()
+  }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {}
+
   try {
     if (!AUDIT_API_KEY) {
       console.error("AUDIT_API_KEY is not configured")
       return NextResponse.json(
         { error: "Audit API key not configured" },
-        { status: 500 }
+        { status: 500, headers }
       )
     }
 
@@ -19,7 +27,7 @@ export async function POST(request: Request) {
     if (!user_id || !action_type || !details || !subsystem) {
       return NextResponse.json(
         { error: "Missing required fields: user_id, action_type, details, subsystem" },
-        { status: 400 }
+        { status: 400, headers }
       )
     }
 
@@ -45,17 +53,17 @@ export async function POST(request: Request) {
       console.error("Audit API error:", errorText)
       return NextResponse.json(
         { error: "Failed to send audit log", details: errorText },
-        { status: response.status }
+        { status: response.status, headers }
       )
     }
 
     const result = await response.json()
-    return NextResponse.json({ success: true, data: result })
+    return NextResponse.json({ success: true, data: result }, { headers })
   } catch (error) {
     console.error("Error sending audit log:", error)
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500, headers }
     )
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth";
 import {
   formatServiceError,
   getBillOrThrow,
@@ -11,18 +12,32 @@ interface RouteContext {
   params: Promise<{ billId: string }>;
 }
 
-export async function GET(_: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  const authResult = validateApiKey(request, { routeName: "/api/bills/[billId]" });
+  if (!authResult.isValid) {
+    return unauthorizedResponse();
+  }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {};
+
   try {
     const { billId } = await context.params;
     const bill = getBillOrThrow(billId);
-    return NextResponse.json({ data: bill }, { status: 200 });
+    return NextResponse.json({ data: bill }, { status: 200, headers });
   } catch (error) {
     const { status, body } = formatServiceError(error);
-    return NextResponse.json(body, { status });
+    return NextResponse.json(body, { status, headers });
   }
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
+  const authResult = validateApiKey(request, { routeName: "/api/bills/[billId]" });
+  if (!authResult.isValid) {
+    return unauthorizedResponse();
+  }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {};
+
   try {
     const { billId } = await context.params;
     const payload = (await request.json()) as UpdateBillInput;
@@ -30,24 +45,31 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       actor_id: request.headers.get("x-actor-id") ?? "system",
       actor_role: request.headers.get("x-actor-role") ?? "billing_staff",
     });
-    return NextResponse.json({ data: bill }, { status: 200 });
+    return NextResponse.json({ data: bill }, { status: 200, headers });
   } catch (error) {
     const { status, body } = formatServiceError(error);
-    return NextResponse.json(body, { status });
+    return NextResponse.json(body, { status, headers });
   }
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  const authResult = validateApiKey(request, { routeName: "/api/bills/[billId]" });
+  if (!authResult.isValid) {
+    return unauthorizedResponse();
+  }
+
+  const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {};
+
   try {
     const { billId } = await context.params;
     const bill = voidBill(billId, {
       actor_id: request.headers.get("x-actor-id") ?? "system",
       actor_role: request.headers.get("x-actor-role") ?? "billing_staff",
     });
-    return NextResponse.json({ data: bill, message: `Bill ${billId} voided successfully.` }, { status: 200 });
+    return NextResponse.json({ data: bill, message: `Bill ${billId} voided successfully.` }, { status: 200, headers });
   } catch (error) {
     const { status, body } = formatServiceError(error);
-    return NextResponse.json(body, { status });
+    return NextResponse.json(body, { status, headers });
   }
 }
 

@@ -23,10 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  formatCurrency,
-} from "@/lib/utils"
-import type { Patient, ChargeEntry as ChargeEntryType, LineItem, InvoicesApiResponse, ExternalInvoice } from "@/lib/types"
+import { formatCurrency } from "@/lib/utils"
+import type { Patient, ChargeEntry as ChargeEntryType, LineItem } from "@/lib/types"
 
 interface PatientMedicationsResponse {
   status: string
@@ -39,6 +37,8 @@ interface PatientMedicationsResponse {
       quantity: number
       frequency: string
       prescriptionDate: string
+      unitPrice?: number
+      totalPrice?: number
     }>
   }
 }
@@ -77,6 +77,15 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
 
   const patientMedications = medicationsData?.data?.medications || []
 
+  // If the user selects a different patient, reset step-specific state so we
+  // don't show the previous patient's line items.
+  useEffect(() => {
+    setAttendingPhysician(patient.attending_physician || "")
+    setAttendingDoctorId("")
+    setWardRoom(patient.ward_room)
+    setLineItems([])
+  }, [patient.patient_id])
+
   // Auto-load patient medications into line items when data is available
   useEffect(() => {
     if (patientMedications.length > 0 && lineItems.length === 0) {
@@ -85,14 +94,19 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
         category: "medication" as const,
         item_name: `${med.medicineName} (${med.dosage})`,
         quantity: med.quantity,
-        unit_price: 0, // Price will be set manually by user
-        total: 0,
+        unit_price: typeof med.unitPrice === "number" ? med.unitPrice : 0,
+        total:
+          typeof med.totalPrice === "number"
+            ? med.totalPrice
+            : typeof med.unitPrice === "number"
+              ? med.quantity * med.unitPrice
+              : 0,
       }))
       if (medicineItems.length > 0) {
         setLineItems(medicineItems)
       }
     }
-  }, [patientMedications, lineItems.length])
+  }, [patientMedications, lineItems.length, patient.patient_id])
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0)
 

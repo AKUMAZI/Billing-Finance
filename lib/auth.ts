@@ -67,7 +67,7 @@ export function validateApiKey(
     // Extract API key from headers
     const apiKeyHeader = request.headers.get("x-api-key")
     const bearerToken = request.headers.get("authorization")?.replace("Bearer ", "")
-    const apiKey = apiKeyHeader || bearerToken
+    const apiKey = (apiKeyHeader || bearerToken)?.trim()
 
     if (!apiKey) {
       if (!requireApiKey) {
@@ -89,9 +89,12 @@ export function validateApiKey(
 
     // Load environment variables for this route
     const { primaryKey, secondaryKey, legacyKey } = getKeyConfigForRoute(routeName)
+    const normalizedPrimaryKey = primaryKey?.trim()
+    const normalizedSecondaryKey = secondaryKey?.trim()
+    const normalizedLegacyKey = legacyKey.trim()
 
     // Validate against primary key (constant-time comparison)
-    if (primaryKey && constantTimeCompare(apiKey, primaryKey)) {
+    if (normalizedPrimaryKey && constantTimeCompare(apiKey, normalizedPrimaryKey)) {
       const keyId = getKeyIdentifier(apiKey)
       if (logUsage) {
         logApiKeyUsage({
@@ -110,7 +113,7 @@ export function validateApiKey(
     }
 
     // Validate against secondary key (for rotation period)
-    if (secondaryKey && constantTimeCompare(apiKey, secondaryKey)) {
+    if (normalizedSecondaryKey && constantTimeCompare(apiKey, normalizedSecondaryKey)) {
       const keyId = getKeyIdentifier(apiKey)
       if (logUsage) {
         logApiKeyUsage({
@@ -129,7 +132,7 @@ export function validateApiKey(
     }
 
     // Validate against legacy key (with deprecation warning)
-    if (allowLegacyKey && constantTimeCompare(apiKey, legacyKey)) {
+    if (allowLegacyKey && constantTimeCompare(apiKey, normalizedLegacyKey)) {
       const keyId = getKeyIdentifier(apiKey)
       const warningMsg = "This API key is deprecated. Please migrate to the production key by May 10, 2026."
       

@@ -57,11 +57,14 @@ export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack,
 
   const patientInvoices = invoicesData?.data?.invoices || []
 
-  // Auto-load all patient invoices into line items when data is available
+  // Auto-load only unpaid/pending patient invoices into line items when data is available
   useEffect(() => {
     if (patientInvoices.length > 0 && lineItems.length === 0) {
       const allMedicineItems: LineItem[] = []
       patientInvoices.forEach((invoice, invoiceIndex) => {
+        if (invoice.status?.toLowerCase() === "paid") {
+          return
+        }
         if (invoice.items && invoice.items.length > 0) {
           invoice.items.forEach((item, itemIndex) => {
             allMedicineItems.push({

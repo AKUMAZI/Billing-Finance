@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { AlertTriangle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -177,24 +177,17 @@ export function TaxComputation({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {Object.entries(groupedSummaryItems).map(([category, items]) => (
-                  <Fragment key={category}>
-                    <TableRow className="bg-muted/30">
-                      <TableCell colSpan={5} className="font-semibold">
-                        {getCategoryLabel(category)}
-                      </TableCell>
+                {Object.entries(groupedSummaryItems).flatMap(([category, items]) =>
+                  items.map((item) => (
+                    <TableRow key={`${category}-${item.item_name}-${item.unit_price}`}>
+                      <TableCell className="font-medium">{getCategoryLabel(category)}</TableCell>
+                      <TableCell>{item.item_name}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(item.total)}</TableCell>
                     </TableRow>
-                    {items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell></TableCell>
-                        <TableCell>{item.item_name}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(item.total)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </Fragment>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

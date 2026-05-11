@@ -29,13 +29,14 @@ export function ProcessPayment({
   onNext,
 }: ProcessPaymentProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(payment?.payment_method || "Cash")
-  const [amountTendered, setAmountTendered] = useState(payment?.amount_tendered || invoice.total_amount_due)
+  const [amountTenderedInput, setAmountTenderedInput] = useState(String(payment?.amount_tendered ?? invoice.total_amount_due))
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
 
+  const amountTendered = Number(amountTenderedInput || 0)
   const change = Math.max(0, amountTendered - invoice.total_amount_due)
-  const isValidPayment = amountTendered >= invoice.total_amount_due
+  const isValidPayment = Number.isFinite(amountTendered) && amountTendered >= invoice.total_amount_due
 
   const handleConfirmPayment = async () => {
     setIsProcessing(true)
@@ -48,6 +49,19 @@ export function ProcessPayment({
     const isSuccessful = Math.random() > 0.1
 
     if (isSuccessful) {
+      try {
+        const response = await fetch("/api/invoices", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invoice_id: invoice.invoice_id, status: "paid" }),
+        })
+        if (!response.ok) {
+          console.error("PMS sync returned non-OK response:", response.status)
+        }
+      } catch (error) {
+        console.error("Failed to sync payment status to PMS:", error)
+      }
+
       setPaymentSuccess(true)
       onUpdatePayment({
         amount_due: invoice.total_amount_due,
@@ -141,9 +155,25 @@ export function ProcessPayment({
                 <div className="space-y-2">
                   <Label>Amount Tendered</Label>
                   <Input
-                    type="number"
-                    value={amountTendered}
-                    onChange={(e) => setAmountTendered(Number(e.target.value))}
+                    type="text"
+                    inputMode="decimal"
+                    value={amountTenderedInput}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      if (raw === "") {
+                        setAmountTenderedInput("")
+                        return
+                      }
+
+                      if (!/^\d*\.?\d*$/.test(raw)) {
+                        return
+                      }
+
+                      const [intPart, decimalPart] = raw.split(".")
+                      const normalizedInt = intPart.replace(/^0+(?=\d)/, "")
+                      setAmountTenderedInput(decimalPart !== undefined ? `${normalizedInt}.${decimalPart}` : normalizedInt)
+                    }}
                     min={0}
                     className="text-lg"
                   />

@@ -94,6 +94,40 @@ export function GenerateInvoice({
     {} as Record<string, typeof invoiceData.line_items>
   )
 
+  const handleDownloadInvoice = () => {
+    const lines = [
+      "SMART HEALTHCARE MEDICAL CENTER",
+      "",
+      `Invoice Number: ${invoiceData.invoice_id}`,
+      `Date Issued: ${formatDate(invoiceData.date_issued)}`,
+      `Due Date: ${formatDate(invoiceData.due_date)}`,
+      `Patient: ${invoiceData.patient_name} (${invoiceData.patient_id})`,
+      "",
+      "LINE ITEMS",
+      ...invoiceData.line_items.map(
+        (item) =>
+          `- ${item.item_name} | Qty: ${item.quantity} | Unit: ${formatCurrency(item.unit_price)} | Total: ${formatCurrency(item.total)}`
+      ),
+      "",
+      `Subtotal: ${formatCurrency(invoiceData.subtotal)}`,
+      `Discount (${invoiceData.discount_type}): -${formatCurrency(invoiceData.discount_amount)}`,
+      `VAT: ${formatCurrency(invoiceData.tax_amount)}`,
+      `Insurance Coverage: -${formatCurrency(invoiceData.insurance_coverage)}`,
+      `Total Amount Due: ${formatCurrency(invoiceData.total_amount_due)}`,
+    ]
+
+    const content = lines.join("\n")
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${invoiceData.invoice_id}.txt`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden">
@@ -237,7 +271,7 @@ export function GenerateInvoice({
           Back
         </Button>
         <div className="flex gap-3">
-          <Button variant="outline" size="lg">
+          <Button variant="outline" size="lg" onClick={handleDownloadInvoice}>
             <Download className="w-4 h-4 mr-2" />
             Download Invoice
           </Button>

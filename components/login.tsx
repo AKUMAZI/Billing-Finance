@@ -15,8 +15,8 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
   rememberMe: z.boolean().optional(),
 })
 
@@ -45,12 +45,12 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    const success = await login(data.email, data.password)
+    const success = await login(data.username, data.password)
 
     if (success) {
       router.push("/dashboard")
     } else {
-      setError("Invalid email or password")
+      setError("Invalid username or password")
     }
 
     setIsLoading(false)
@@ -97,18 +97,18 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email Address
+              <Label htmlFor="username" className="text-sm font-medium">
+                Username
               </Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="Enter you email address"
-                {...register("email")}
+                id="username"
+                type="text"
+                placeholder="Enter your username"
+                {...register("username")}
                 className="transition-all duration-200 focus:ring-2 focus:ring-primary"
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+              {errors.username && (
+                <p className="text-sm text-destructive">{errors.username.message}</p>
               )}
             </div>
 

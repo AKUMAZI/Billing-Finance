@@ -5,7 +5,7 @@ const AUDIT_BASE_URL = "https://admin-subystem.onrender.com/admin/api/audit/inge
 const AUDIT_API_KEY = process.env.AUDIT_API_KEY
 
 export async function POST(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/audit" })
+  const authResult = validateApiKey(request, { routeName: "/api/audit", requireApiKey: false })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }

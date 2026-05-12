@@ -15,12 +15,41 @@ function isMissingInvoicesTableError(error: unknown): boolean {
   )
 }
 
-async function patchPmsInvoiceStatus(invoiceId: string, status: string) {
+async function getPmsInvoiceByInvoiceId(invoiceId: string) {
   if (!PMS_INVOICES_API_KEY) {
     throw new Error("Missing PMS_INVOICES_API_KEY configuration")
   }
 
-  const url = `${PMS_INVOICES_API_BASE_URL}/${invoiceId}`
+  const url = new URL(PMS_INVOICES_API_BASE_URL)
+  url.searchParams.set("search", invoiceId)
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": PMS_INVOICES_API_KEY,
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "")
+    throw new Error(`Failed to fetch invoice from PMS: ${response.status} ${errorText}`)
+  }
+
+  const data = await response.json()
+  // Search through results to find matching invoice
+  if (data.data && Array.isArray(data.data)) {
+    return data.data.find((inv: any) => inv.invoice_id === invoiceId)
+  }
+  return null
+}
+
+async function patchPmsInvoiceStatus(pmsInvoiceId: string, status: string) {
+  if (!PMS_INVOICES_API_KEY) {
+    throw new Error("Missing PMS_INVOICES_API_KEY configuration")
+  }
+
+  const url = `${PMS_INVOICES_API_BASE_URL}/${pmsInvoiceId}`
 
   const response = await fetch(url, {
     method: "PATCH",
@@ -164,9 +193,23 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/in
     }
 
     // Always use PMS API for invoice status updates
-    // Convert invoice_id to bill_id format that PMS expects (INV-* -> BILL-*)
-    const billId = invoiceId.replace(/^INV-/, "BILL-")
-    const patched = await patchPmsInvoiceStatus(billId, status.toLowerCase())
+    // First, fetch the actual PMS invoice to get its ID
+    const pmsInvoice = await getPmsInvoiceByInvoiceId(invoiceId)
+    
+    if (!pmsInvoice) {
+      return NextResponse.json(
+        {
+          status: "error",
+          error_code: "NOT_FOUND",
+          message: `Invoice with id ${invoiceId} not found in PMS`,
+          details: { invoiceId },
+        },
+        { status: 404, headers }
+      )
+    }
+
+    // Patch using the PMS invoice's _id field
+    const patched = await patchPmsInvoiceStatus(pmsInvoice._id, status.toLowerCase())
     return NextResponse.json(
       {
         status: "success",
@@ -175,14 +218,6 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/in
       },
       { status: 200, headers }
     )
-
-    return NextResponse.json({
-      status: "success",
-      message: "Invoice updated successfully",
-      data: {
-        invoice,
-      },
-    }, { headers })
   } catch (error) {
     console.error("Error updating invoice:", error)
     return NextResponse.json(

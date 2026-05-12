@@ -28,26 +28,8 @@ interface GenerateReceiptProps {
 export function GenerateReceipt({ invoice, payment, onNewTransaction }: GenerateReceiptProps) {
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const billCreatedRef = useRef(false)
+  const auditPostedForReceiptIdRef = useRef<string | null>(null)
   const [billCreateError, setBillCreateError] = useState<string | null>(null)
-
-  // Send audit log to admin system
-  const sendAuditLog = async (receiptData: Receipt) => {
-    try {
-      await fetch("/api/audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: "billing-system",
-          action_type: "RECORD_CREATED",
-          details: `Receipt ${receiptData.receipt_id} generated for patient ${receiptData.patient_name}. Invoice: ${receiptData.invoice_id}. Amount: ${receiptData.amount_paid}. Payment method: ${receiptData.payment_method}.`,
-          ip_addr: "0.0.0.0",
-          subsystem: "Billing",
-        }),
-      })
-    } catch (error) {
-      console.error("Failed to send audit log:", error)
-    }
-  }
 
   const createBillRecord = async (payload: CreateBillInput) => {
     const res = await fetch("/api/bills", {
@@ -98,11 +80,32 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
         status: "Paid",
       }
       setReceipt(newReceipt)
-      
-      // Send audit log when receipt is generated
-      sendAuditLog(newReceipt)
     }
   }, [receipt, invoice, payment])
+
+  // Admin audit: fire when the receipt exists (not tied to bill save success).
+  useEffect(() => {
+    if (!receipt) return
+    if (auditPostedForReceiptIdRef.current === receipt.receipt_id) return
+    auditPostedForReceiptIdRef.current = receipt.receipt_id
+
+    const details = `Receipt ${receipt.receipt_id} generated for patient ${receipt.patient_name}. Invoice: ${receipt.invoice_id}. Amount paid: ${formatCurrency(receipt.amount_paid)}. Payment method: ${receipt.payment_method}.`
+
+    void fetch("/api/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action_type: "RECORD_CREATED",
+        details,
+        subsystem: "Billing",
+      }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text().catch(() => "")
+        console.error("[receipt] Admin audit ingest failed:", res.status, text)
+      }
+    })
+  }, [receipt])
 
   useEffect(() => {
     if (!receipt) return

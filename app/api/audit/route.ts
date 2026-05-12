@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth"
-
-const AUDIT_BASE_URL = "https://admin-subystem.onrender.com/admin/api/audit/ingest"
-const AUDIT_API_KEY = process.env.AUDIT_API_KEY
+import { postAdminAuditIngest, resolveAuditUserId } from "@/lib/admin-audit-ingest"
 
 export async function POST(request: NextRequest) {
   const authResult = validateApiKey(request, { routeName: "/api/audit", requireApiKey: false })
@@ -13,63 +11,40 @@ export async function POST(request: NextRequest) {
   const headers = authResult.requiresWarning ? getDeprecationWarningHeader() : {}
 
   try {
-    if (!AUDIT_API_KEY) {
-      console.error("AUDIT_API_KEY is not configured")
-      return NextResponse.json(
-        { error: "Audit API key not configured" },
-        { status: 500, headers }
-      )
-    }
-
     const body = (await request.json()) as Record<string, unknown>
 
-    const user_id = body.user_id != null ? String(body.user_id).trim() : ""
     const action_type = body.action_type != null ? String(body.action_type).trim() : ""
     const details = body.details != null ? String(body.details).trim() : ""
     const subsystem = body.subsystem != null ? String(body.subsystem).trim() : ""
-    const ip_addr =
-      body.ip_addr != null && String(body.ip_addr).trim() !== ""
-        ? String(body.ip_addr).trim()
-        : "0.0.0.0"
 
-    if (!user_id || !action_type || !details || !subsystem) {
+    if (!action_type || !details || !subsystem) {
       return NextResponse.json(
         {
-          error: "Missing required fields: user_id, action_type, details, subsystem",
-          hint: "All four must be non-empty strings after trim.",
+          error: "Missing required fields: action_type, details, subsystem",
+          hint: "user_id is optional if ADMIN_AUDIT_USER_ID is set.",
         },
-        { status: 400, headers }
+        { status: 400, headers },
       )
     }
 
-    const auditPayload = {
+    const user_id = resolveAuditUserId(body.user_id != null ? String(body.user_id) : undefined)
+
+    const result = await postAdminAuditIngest(request, {
       user_id,
       action_type,
       details,
-      ip_addr,
       subsystem,
-    }
-
-    const response = await fetch(AUDIT_BASE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-subsystem-key": AUDIT_API_KEY,
-      },
-      body: JSON.stringify(auditPayload),
+      ip_addr: body.ip_addr != null ? String(body.ip_addr) : undefined,
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("Audit API error:", errorText)
+    if (!result.ok) {
       return NextResponse.json(
-        { error: "Failed to send audit log", details: errorText },
-        { status: response.status, headers }
+        { error: "Failed to send audit log", details: result.error },
+        { status: result.status >= 400 ? result.status : 502, headers },
       )
     }
 
-    const result = await response.json()
-    return NextResponse.json({ success: true, data: result }, { headers })
+    return NextResponse.json({ success: true }, { headers })
   } catch (error) {
     console.error("Error sending audit log:", error)
     return NextResponse.json(

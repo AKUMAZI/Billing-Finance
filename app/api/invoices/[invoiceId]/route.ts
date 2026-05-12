@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } from "@/lib/auth"
-import { deleteInvoice, getInvoice, upsertInvoice } from "@/lib/invoices-store"
+import { deleteInvoice, getInvoice } from "@/lib/invoices-store"
 
 const PMS_INVOICES_API_BASE_URL =
   process.env.PMS_INVOICES_API_BASE_URL?.trim() ||
@@ -163,35 +163,16 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/in
       }
     }
 
-    if (!invoice) {
-      if (invoiceTableMissing) {
-        const patched = await patchPmsInvoiceStatus(invoiceId, status.toLowerCase(), invoicePayload)
-        return NextResponse.json(
-          {
-            status: "success",
-            message: "PMS invoice status patched successfully",
-            data: patched,
-          },
-          { status: 200, headers }
-        )
-      }
-
-      return NextResponse.json(
-        {
-          status: "error",
-          error_code: "NOT_FOUND",
-          message: `Invoice with id ${invoiceId} not found`,
-          details: { invoiceId },
-        },
-        { status: 404, headers }
-      )
-    }
-
-    // Update the invoice - normalize status to lowercase to match database schema
-    invoice.status = status.toLowerCase() as "pending" | "paid" | "cancelled" | "refunded"
-    invoice.updated_at = new Date().toISOString()
-    invoice.updated_by = updated_by || "system"
-    await upsertInvoice(invoice)
+    // Always use PMS API for invoice status updates
+    const patched = await patchPmsInvoiceStatus(invoiceId, status.toLowerCase(), invoicePayload)
+    return NextResponse.json(
+      {
+        status: "success",
+        message: "PMS invoice status patched successfully",
+        data: patched,
+      },
+      { status: 200, headers }
+    )
 
     return NextResponse.json({
       status: "success",

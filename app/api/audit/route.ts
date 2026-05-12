@@ -21,12 +21,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const { user_id, action_type, details, ip_addr, subsystem } = body
+    const body = (await request.json()) as Record<string, unknown>
+
+    const user_id = body.user_id != null ? String(body.user_id).trim() : ""
+    const action_type = body.action_type != null ? String(body.action_type).trim() : ""
+    const details = body.details != null ? String(body.details).trim() : ""
+    const subsystem = body.subsystem != null ? String(body.subsystem).trim() : ""
+    const ip_addr =
+      body.ip_addr != null && String(body.ip_addr).trim() !== ""
+        ? String(body.ip_addr).trim()
+        : "0.0.0.0"
 
     if (!user_id || !action_type || !details || !subsystem) {
       return NextResponse.json(
-        { error: "Missing required fields: user_id, action_type, details, subsystem" },
+        {
+          error: "Missing required fields: user_id, action_type, details, subsystem",
+          hint: "All four must be non-empty strings after trim.",
+        },
         { status: 400, headers }
       )
     }
@@ -35,7 +46,7 @@ export async function POST(request: NextRequest) {
       user_id,
       action_type,
       details,
-      ip_addr: ip_addr || "0.0.0.0",
+      ip_addr,
       subsystem,
     }
 

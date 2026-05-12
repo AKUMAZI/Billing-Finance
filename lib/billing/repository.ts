@@ -76,10 +76,15 @@ export async function getBillById(billId: string): Promise<BillRecord | undefine
 export async function saveBill(bill: BillRecord): Promise<BillRecord> {
   const supabase = getSupabase();
   const row = billToRow(bill);
-  const { data, error } = await supabase.from("receipts").upsert(row, { onConflict: "bill_id" }).select("*").single();
+  const { data, error } = await supabase.from("receipts").upsert(row, { onConflict: "bill_id" }).select("*");
   if (error) throw new Error(`saveBill: ${error.message}`);
-  if (!data) throw new Error(`Failed to save bill ${bill.bill_id}`);
-  return rowToBill(data as Record<string, unknown>);
+  const saved = data?.[0];
+  if (!saved) {
+    throw new Error(
+      "saveBill: upsert returned no rows. Common causes: table `receipts` missing in Supabase, or RLS allows INSERT but not SELECT on that row. Use SUPABASE_SERVICE_ROLE_KEY on the server or add matching RLS policies.",
+    );
+  }
+  return rowToBill(saved as Record<string, unknown>);
 }
 
 export async function findBillByPatientAndVisit(

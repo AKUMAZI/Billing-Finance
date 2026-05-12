@@ -89,10 +89,11 @@ export async function getInvoice(invoiceId: string): Promise<Invoice | undefined
 export async function upsertInvoice(invoice: Invoice): Promise<Invoice> {
   const supabase = getSupabase()
   const row = invoiceToRow(invoice)
-  const { data, error } = await supabase.from("invoices").upsert(row, { onConflict: "invoice_id" }).select("*").single()
+  const { data, error } = await supabase.from("invoices").upsert(row, { onConflict: "invoice_id" }).select("*")
   if (error) throw new Error(`upsertInvoice: ${error.message}`)
-  if (!data) throw new Error(`Failed to save invoice ${invoice.invoice_id}`)
-  return rowToInvoice(data as Record<string, unknown>)
+  const saved = data?.[0]
+  if (!saved) throw new Error(`Failed to save invoice ${invoice.invoice_id}`)
+  return rowToInvoice(saved as Record<string, unknown>)
 }
 
 export async function deleteInvoice(invoiceId: string): Promise<boolean> {

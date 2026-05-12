@@ -22,9 +22,16 @@ class BillingServiceError extends Error {
   }
 }
 
+/** Accepts YYYY-MM-DD or ISO strings that begin with a calendar date (e.g. 2026-05-01T12:00:00.000Z). */
 function isValidDate(value: string): boolean {
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const part = value.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(part)) return false;
+  const date = new Date(`${part}T12:00:00`);
+  return !Number.isNaN(date.getTime());
+}
+
+function toYmd(value: string): string {
+  return value.trim().slice(0, 10);
 }
 
 function validateRequiredString(value: unknown, fieldName: string): asserts value is string {
@@ -48,6 +55,29 @@ function validateAmount(value: unknown, fieldName: string): asserts value is num
       message: "Invalid billing values detected.",
       details: {
         [fieldName]: "Must be a positive number.",
+      },
+    });
+  }
+}
+
+function validateInsuranceCoverage(value: unknown, total: number): asserts value is number {
+  if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
+    throw new BillingServiceError(400, {
+      status: "error",
+      error_code: "INVALID_INPUT",
+      message: "Invalid billing values detected.",
+      details: {
+        insurance_coverage: "Must be a non-negative number.",
+      },
+    });
+  }
+  if (value > total) {
+    throw new BillingServiceError(400, {
+      status: "error",
+      error_code: "INVALID_INPUT",
+      message: "Invalid billing values detected.",
+      details: {
+        insurance_coverage: "Cannot exceed total_amount and must be numeric.",
       },
     });
   }
@@ -82,6 +112,23 @@ async function addAuditEntry(
   });
 }
 
+/** Bill row is already saved; audit is best-effort so RLS/schema issues do not fail the API. */
+async function addAuditEntrySafe(
+  billId: string,
+  action: "CREATED" | "UPDATED" | "VOIDED" | "CLAIM_UPDATED",
+  context: RequestContext,
+  changes: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await addAuditEntry(billId, action, context, changes);
+  } catch (error) {
+    console.warn(
+      "[billing] bill_audits append failed (bill already saved):",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
 function normalizeNewBill(input: CreateBillInput): BillRecord {
   validateRequiredString(input.bill_id, "bill_id");
   validateRequiredString(input.patient_id, "patient_id");
@@ -91,7 +138,7 @@ function normalizeNewBill(input: CreateBillInput): BillRecord {
   validateRequiredString(input.payment_status, "payment_status");
   validateRequiredString(input.attending_doctor_id, "attending_doctor_id");
   validateAmount(input.total_amount, "total_amount");
-  validateAmount(input.insurance_coverage, "insurance_coverage");
+  validateInsuranceCoverage(input.insurance_coverage, input.total_amount);
 
   if (!isValidDate(input.visit_date)) {
     throw new BillingServiceError(400, {
@@ -117,7 +164,11 @@ function normalizeNewBill(input: CreateBillInput): BillRecord {
       details: { due_date: "Must follow YYYY-MM-DD format." },
     });
   }
-  if (new Date(input.due_date).getTime() < new Date(input.billing_date).getTime()) {
+  const visitYmd = toYmd(input.visit_date);
+  const billingYmd = toYmd(input.billing_date);
+  const dueYmd = toYmd(input.due_date);
+
+  if (new Date(`${dueYmd}T12:00:00`).getTime() < new Date(`${billingYmd}T12:00:00`).getTime()) {
     throw new BillingServiceError(400, {
       status: "error",
       error_code: "INVALID_INPUT",
@@ -155,17 +206,6 @@ function normalizeNewBill(input: CreateBillInput): BillRecord {
       },
     });
   }
-  if (input.insurance_coverage > input.total_amount) {
-    throw new BillingServiceError(400, {
-      status: "error",
-      error_code: "INVALID_INPUT",
-      message: "Invalid billing values detected.",
-      details: {
-        insurance_coverage: "Cannot exceed total_amount and must be numeric.",
-      },
-    });
-  }
-
   const computedBalance = computePatientBalance(input.total_amount, input.insurance_coverage);
   if (typeof input.patient_balance === "number") {
     validateAmount(input.patient_balance, "patient_balance");
@@ -183,6 +223,9 @@ function normalizeNewBill(input: CreateBillInput): BillRecord {
 
   return {
     ...input,
+    visit_date: visitYmd,
+    billing_date: billingYmd,
+    due_date: dueYmd,
     patient_balance: computedBalance,
     is_voided: false,
     voided_at: null,
@@ -257,6 +300,7 @@ async function validateDependencies(): Promise<void> {
 
 export async function createBill(payload: CreateBillInput, context: RequestContext): Promise<BillRecord> {
   await validateDependencies();
+  const visitForLookup = payload.visit_date.trim().slice(0, 10);
   if (await getBillById(payload.bill_id)) {
     throw new BillingServiceError(409, {
       status: "error",
@@ -264,24 +308,24 @@ export async function createBill(payload: CreateBillInput, context: RequestConte
       message: "A billing record already exists for this patient and visit date.",
       details: {
         patient_id: payload.patient_id,
-        visit_date: payload.visit_date,
+        visit_date: visitForLookup,
       },
     });
   }
-  if (await findBillByPatientAndVisit(payload.patient_id, payload.visit_date)) {
+  if (await findBillByPatientAndVisit(payload.patient_id, visitForLookup)) {
     throw new BillingServiceError(409, {
       status: "error",
       error_code: "DUPLICATE_BILL",
       message: "A billing record already exists for this patient and visit date.",
       details: {
         patient_id: payload.patient_id,
-        visit_date: payload.visit_date,
+        visit_date: visitForLookup,
       },
     });
   }
   const normalized = normalizeNewBill(payload);
   const saved = await saveBill(normalized);
-  await addAuditEntry(saved.bill_id, "CREATED", context, { created: true });
+  await addAuditEntrySafe(saved.bill_id, "CREATED", context, { created: true });
   return saved;
 }
 
@@ -319,7 +363,7 @@ export async function updateBill(
     is_voided: current.is_voided,
     voided_at: current.voided_at,
   });
-  await addAuditEntry(billId, "UPDATED", context, payload as Record<string, unknown>);
+  await addAuditEntrySafe(billId, "UPDATED", context, payload as Record<string, unknown>);
   return saved;
 }
 
@@ -332,7 +376,7 @@ export async function voidBill(billId: string, context: RequestContext): Promise
     updated_at: nowIso(),
   };
   const saved = await saveBill(updated);
-  await addAuditEntry(billId, "VOIDED", context, { is_voided: true });
+  await addAuditEntrySafe(billId, "VOIDED", context, { is_voided: true });
   return saved;
 }
 
@@ -360,7 +404,7 @@ export async function markInsuranceClaimed(billId: string, context: RequestConte
   };
 
   const saved = await saveBill(updated);
-  await addAuditEntry(billId, "CLAIM_UPDATED", context, { is_insurance_claimed: true });
+  await addAuditEntrySafe(billId, "CLAIM_UPDATED", context, { is_insurance_claimed: true });
   return saved;
 }
 
@@ -373,6 +417,7 @@ export function formatServiceError(error: unknown): { status: number; body: Serv
   if (error instanceof BillingServiceError) {
     return { status: error.status, body: error.errorPayload };
   }
+  const reason = error instanceof Error ? error.message : String(error);
   return {
     status: 500,
     body: {
@@ -382,6 +427,7 @@ export function formatServiceError(error: unknown): { status: number; body: Serv
       details: {
         operation: "Database write / Payment processing",
         action: "Transaction rolled back",
+        reason,
       },
     },
   };

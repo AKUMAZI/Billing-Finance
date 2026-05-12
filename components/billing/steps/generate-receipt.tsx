@@ -9,6 +9,16 @@ import { formatCurrency, generateReceiptId } from "@/lib/utils"
 import type { Invoice, Payment, Receipt } from "@/lib/types"
 import type { CreateBillInput } from "@/lib/billing/types"
 
+/** Billing API expects YYYY-MM-DD (ISO timestamps are normalized). */
+function toYmd(value: string): string {
+  const s = value.trim()
+  const head = s.slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return head
+  const d = new Date(s)
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+  return head
+}
+
 interface GenerateReceiptProps {
   invoice: Invoice
   payment: Payment
@@ -51,7 +61,13 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
     })
 
     if (!res.ok) {
-      const text = await res.text().catch(() => "")
+      let text = await res.text().catch(() => "")
+      try {
+        const parsed = JSON.parse(text) as { details?: { reason?: string } }
+        if (parsed?.details?.reason) text = parsed.details.reason
+      } catch {
+        // keep raw text
+      }
       throw new Error(text || `Failed to create bill (${res.status})`)
     }
   }
@@ -103,15 +119,15 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
         bill_id: receipt.invoice_id.replace(/^INV-/, "BILL-"),
         patient_id: invoice.patient_id,
         patient_name: invoice.patient_name,
-        visit_date: invoice.date_issued,
+        visit_date: toYmd(invoice.date_issued),
         services_rendered: servicesRendered.length > 0 ? servicesRendered : ["Billing services"],
         total_amount: totalBeforeInsurance,
         insurance_provider: "Self-Pay",
-        insurance_coverage: invoice.insurance_coverage,
+        insurance_coverage: Number(invoice.insurance_coverage) || 0,
         payment_method: receipt.payment_method,
         payment_status: "Paid",
-        billing_date: invoice.date_issued,
-        due_date: invoice.due_date,
+        billing_date: toYmd(invoice.date_issued),
+        due_date: toYmd(invoice.due_date),
         is_insurance_claimed: false,
         attending_doctor_id: "system",
       }

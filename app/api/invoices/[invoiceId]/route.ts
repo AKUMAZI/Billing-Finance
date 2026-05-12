@@ -164,7 +164,9 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/in
     }
 
     // Always use PMS API for invoice status updates
-    const patched = await patchPmsInvoiceStatus(invoiceId, status.toLowerCase())
+    // Convert invoice_id to bill_id format that PMS expects (INV-* -> BILL-*)
+    const billId = invoiceId.replace(/^INV-/, "BILL-")
+    const patched = await patchPmsInvoiceStatus(billId, status.toLowerCase())
     return NextResponse.json(
       {
         status: "success",

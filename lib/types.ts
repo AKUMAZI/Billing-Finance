@@ -145,6 +145,7 @@ export interface TaxComputation {
 }
 
 export interface Invoice {
+  _id?: string // PMS MongoDB ObjectId for patching
   invoice_id: string
   date_issued: string
   due_date: string

@@ -161,7 +161,9 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
       setInvoicePatchError(null)
 
       try {
-        const response = await fetch(`/api/invoices/${encodeURIComponent(invoice.invoice_id)}`, {
+        // Use PMS invoice _id if available, otherwise use invoice_id
+        const invoiceId = invoice._id || invoice.invoice_id
+        const response = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

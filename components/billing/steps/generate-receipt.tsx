@@ -161,21 +161,33 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
       setInvoicePatchError(null)
 
       try {
-        // Use PMS invoice _id if available, otherwise use invoice_id
-        const invoiceId = invoice._id || invoice.invoice_id
-        const response = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}`, {
+        // Billing API resolves PMS id: pass invoice_id or _id in the URL and full `invoice`
+        // (with patient_id) in the body so the server can match against PMS.
+        const idForPath = invoice._id || invoice.invoice_id
+        const response = await fetch(`/api/invoices/${encodeURIComponent(idForPath)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({
             status: "paid",
             invoice,
+            patient_id: invoice.patient_id,
+            invoice_id: invoice.invoice_id,
+            pms_document_id: invoice._id,
             updated_by: "billing-system",
           }),
         })
 
         if (!response.ok) {
-          const payload = await response.json().catch(() => null)
-          throw new Error(payload?.message || "Failed to patch PMS invoice status")
+          const payload = (await response.json().catch(() => null)) as {
+            message?: string
+            details?: unknown
+          } | null
+          const detailStr =
+            payload?.details !== undefined
+              ? ` (${typeof payload.details === "string" ? payload.details : JSON.stringify(payload.details)})`
+              : ""
+          throw new Error((payload?.message || "Failed to patch PMS invoice status") + detailStr)
         }
 
         setInvoicePatchMessage("PMS invoice status patched to paid.")

@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db/sqlite"
+import { getSupabase } from "@/lib/db/supabase"
 
 export type InvoiceItem = {
   medicineId?: string
@@ -31,6 +31,7 @@ export type Invoice = {
 }
 
 function parseJsonArray<T>(value: unknown, fallback: T[]): T[] {
+  if (Array.isArray(value)) return value as T[]
   if (typeof value !== "string") return fallback
   try {
     const parsed = JSON.parse(value)
@@ -40,72 +41,63 @@ function parseJsonArray<T>(value: unknown, fallback: T[]): T[] {
   }
 }
 
-function rowToInvoice(row: any): Invoice {
+function rowToInvoice(row: Record<string, unknown>): Invoice {
   return {
-    ...row,
+    ...(row as Invoice),
     items: parseJsonArray<InvoiceItem>(row.items, []),
     prescription_names: parseJsonArray<string>(row.prescription_names, []),
     is_released: Boolean(row.is_released),
-  } as Invoice
+  }
+}
+
+function invoiceToRow(invoice: Invoice) {
+  return {
+    invoice_id: invoice.invoice_id,
+    _id: invoice._id,
+    patient_id: invoice.patient_id,
+    patient_name: invoice.patient_name,
+    health_record_id: invoice.health_record_id,
+    diagnosis: invoice.diagnosis ?? "",
+    items: invoice.items ?? [],
+    prescription_names: invoice.prescription_names ?? [],
+    is_released: invoice.is_released,
+    total_amount: invoice.total_amount,
+    invoice_date: invoice.invoice_date,
+    status: invoice.status,
+    created_by: invoice.created_by,
+    created_at: invoice.created_at,
+    updated_at: invoice.updated_at,
+    updated_by: invoice.updated_by ?? null,
+  }
 }
 
 export async function listInvoices(): Promise<Invoice[]> {
-  const db = getDb()
-  const rows = db.prepare("SELECT * FROM invoices ORDER BY created_at DESC").all()
-  return rows.map(rowToInvoice)
+  const supabase = getSupabase()
+  const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false })
+  if (error) throw new Error(`listInvoices: ${error.message}`)
+  return (data ?? []).map((row) => rowToInvoice(row as Record<string, unknown>))
 }
 
 export async function getInvoice(invoiceId: string): Promise<Invoice | undefined> {
-  const db = getDb()
-  const row = db.prepare("SELECT * FROM invoices WHERE invoice_id = ?").get(invoiceId)
-  return row ? rowToInvoice(row) : undefined
+  const supabase = getSupabase()
+  const { data, error } = await supabase.from("invoices").select("*").eq("invoice_id", invoiceId).maybeSingle()
+  if (error) throw new Error(`getInvoice: ${error.message}`)
+  if (!data) return undefined
+  return rowToInvoice(data as Record<string, unknown>)
 }
 
 export async function upsertInvoice(invoice: Invoice): Promise<Invoice> {
-  const db = getDb()
-  db.prepare(
-    `
-      INSERT INTO invoices (
-        invoice_id, _id, patient_id, patient_name, health_record_id, diagnosis,
-        items, prescription_names, is_released, total_amount, invoice_date,
-        status, created_by, created_at, updated_at, updated_by
-      ) VALUES (
-        @invoice_id, @_id, @patient_id, @patient_name, @health_record_id, @diagnosis,
-        @items, @prescription_names, @is_released, @total_amount, @invoice_date,
-        @status, @created_by, @created_at, @updated_at, @updated_by
-      )
-      ON CONFLICT(invoice_id) DO UPDATE SET
-        _id=excluded._id,
-        patient_id=excluded.patient_id,
-        patient_name=excluded.patient_name,
-        health_record_id=excluded.health_record_id,
-        diagnosis=excluded.diagnosis,
-        items=excluded.items,
-        prescription_names=excluded.prescription_names,
-        is_released=excluded.is_released,
-        total_amount=excluded.total_amount,
-        invoice_date=excluded.invoice_date,
-        status=excluded.status,
-        created_by=excluded.created_by,
-        created_at=excluded.created_at,
-        updated_at=excluded.updated_at,
-        updated_by=excluded.updated_by
-    `,
-  ).run({
-    ...invoice,
-    items: JSON.stringify(invoice.items ?? []),
-    prescription_names: JSON.stringify(invoice.prescription_names ?? []),
-    is_released: invoice.is_released ? 1 : 0,
-  })
-
-  const saved = db.prepare("SELECT * FROM invoices WHERE invoice_id = ?").get(invoice.invoice_id)
-  if (!saved) throw new Error(`Failed to save invoice ${invoice.invoice_id}`)
-  return rowToInvoice(saved)
+  const supabase = getSupabase()
+  const row = invoiceToRow(invoice)
+  const { data, error } = await supabase.from("invoices").upsert(row, { onConflict: "invoice_id" }).select("*").single()
+  if (error) throw new Error(`upsertInvoice: ${error.message}`)
+  if (!data) throw new Error(`Failed to save invoice ${invoice.invoice_id}`)
+  return rowToInvoice(data as Record<string, unknown>)
 }
 
 export async function deleteInvoice(invoiceId: string): Promise<boolean> {
-  const db = getDb()
-  const result = db.prepare("DELETE FROM invoices WHERE invoice_id = ?").run(invoiceId)
-  return result.changes > 0
+  const supabase = getSupabase()
+  const { data, error } = await supabase.from("invoices").delete().eq("invoice_id", invoiceId).select("invoice_id")
+  if (error) throw new Error(`deleteInvoice: ${error.message}`)
+  return Array.isArray(data) && data.length > 0
 }
-

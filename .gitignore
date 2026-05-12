@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local sqlite (removed from app; use Supabase only)
+/data/*.sqlite
+/data/*.sqlite-shm
+/data/*.sqlite-wal

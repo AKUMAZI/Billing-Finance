@@ -165,7 +165,7 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/in
 
     if (!invoice) {
       if (invoiceTableMissing) {
-        const patched = await patchPmsInvoiceStatus(invoiceId, status, invoicePayload)
+        const patched = await patchPmsInvoiceStatus(invoiceId, status.toLowerCase(), invoicePayload)
         return NextResponse.json(
           {
             status: "success",
@@ -187,8 +187,8 @@ export async function PATCH(request: NextRequest, context: RouteContext<"/api/in
       )
     }
 
-    // Update the invoice
-    invoice.status = status
+    // Update the invoice - normalize status to lowercase to match database schema
+    invoice.status = status.toLowerCase() as "pending" | "paid" | "cancelled" | "refunded"
     invoice.updated_at = new Date().toISOString()
     invoice.updated_by = updated_by || "system"
     await upsertInvoice(invoice)

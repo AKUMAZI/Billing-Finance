@@ -29,13 +29,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check if user is authenticated on mount
     const checkAuth = () => {
-      const storedUser = localStorage.getItem('user')
-      const isAuthenticated = localStorage.getItem('isAuthenticated')
+      const storedUser = localStorage.getItem("user")
 
-      if (storedUser && isAuthenticated === 'true') {
-        setUser(JSON.parse(storedUser))
-      }
-      setIsLoading(false)
+      // Because the secure session cookie is httpOnly, we must verify it via an API call.
+      void fetch("/api/auth/session", { credentials: "include" })
+        .then(async (res) => {
+          if (!res.ok) return false
+          return true
+        })
+        .then((ok) => {
+          if (!ok) {
+            setUser(null)
+            localStorage.removeItem("isAuthenticated")
+            setIsLoading(false)
+            return
+          }
+
+          if (storedUser) {
+            setUser(JSON.parse(storedUser))
+          } else {
+            // Fallback user when cookie is present but localStorage is empty.
+            setUser({
+              id: "session-user",
+              email: "billing-session",
+              fullName: "Billing & Finance Admin",
+              role: "Admin",
+              department: "Billing",
+            })
+          }
+          localStorage.setItem("isAuthenticated", "true")
+          setIsLoading(false)
+        })
+        .catch(() => {
+          setUser(null)
+          setIsLoading(false)
+        })
     }
 
     checkAuth()
@@ -49,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password, subsystem: "Billing" }),
+        credentials: "include",
       })
 
       if (!response.ok) {
@@ -85,12 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Notify admin subsystem audit trail for successful logins.
-      const billingApiKey = process.env.NEXT_PUBLIC_BILLING_API_KEY
       await fetch("/api/audit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(billingApiKey ? { "x-api-key": billingApiKey } : {}),
         },
         body: JSON.stringify({
           user_id: mockUser.id,
@@ -98,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           details: `User ${username} logged in to Billing subsystem`,
           subsystem: "Billing",
         }),
+        credentials: "include",
       }).catch(() => {
         // Login should still succeed even if audit logging is temporarily unavailable.
       })
@@ -112,9 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem('user')
-    localStorage.removeItem('isAuthenticated')
-    router.push('/')
+    localStorage.removeItem("user")
+    localStorage.removeItem("isAuthenticated")
+    void fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined)
+    router.push("/")
   }
 
   const value: AuthContextType = {

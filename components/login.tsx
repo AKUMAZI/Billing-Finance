@@ -57,7 +57,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div
+      className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden"
+      suppressHydrationWarning
+    >
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/10 to-accent/10 rounded-full blur-3xl animate-pulse"></div>
@@ -89,7 +92,7 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" suppressHydrationWarning>
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>

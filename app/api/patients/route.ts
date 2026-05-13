@@ -38,7 +38,7 @@ export interface PatientsApiResponse {
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/patients", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/patients" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }

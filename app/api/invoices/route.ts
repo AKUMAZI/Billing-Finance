@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 
 // Retrieve invoices from PMS
 export async function GET(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/invoices", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/invoices" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }
@@ -240,7 +240,7 @@ export async function GET(request: NextRequest) {
 
 // Update invoice status
 export async function PATCH(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/invoices", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/invoices" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }

@@ -45,7 +45,7 @@ interface GenerateInvoiceProps {
 }
 
 const fetcher = (url: string) =>
-  fetch(url, { cache: "no-store" }).then((res) => res.json())
+  fetch(url, { cache: "no-store", credentials: "include" }).then((res) => res.json())
 
 function toYmd(iso: string): string {
   const s = iso.trim()

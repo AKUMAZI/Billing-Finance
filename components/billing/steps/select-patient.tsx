@@ -26,7 +26,7 @@ interface SelectPatientProps {
 const PMS_PAGE_CHUNK = 100
 
 async function invoicesFetcher(url: string): Promise<InvoicesApiResponse> {
-  const res = await fetch(url)
+  const res = await fetch(url, { credentials: "include" })
   const body = (await res.json()) as InvoicesApiResponse & { message?: string; error_code?: string }
   if (!res.ok || body.status === "error") {
     throw new Error(

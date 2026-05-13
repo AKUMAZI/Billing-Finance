@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { validateApiKey, unauthorizedResponse } from "@/lib/auth"
 
 export const runtime = "nodejs"
 
@@ -38,6 +39,11 @@ interface RouteContext {
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  const authResult = validateApiKey(request, { routeName: "/api/patients/[patientId]/medications" })
+  if (!authResult.isValid) {
+    return unauthorizedResponse()
+  }
+
   try {
     const { patientId } = await context.params
 

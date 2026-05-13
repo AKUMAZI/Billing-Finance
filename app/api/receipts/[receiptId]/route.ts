@@ -5,7 +5,7 @@ import { getReceiptById } from "@/lib/receipts-store"
 export const runtime = "nodejs"
 
 export async function GET(request: NextRequest, context: RouteContext<"/api/receipts/[receiptId]">) {
-  const authResult = validateApiKey(request, { routeName: "/api/receipts/[receiptId]", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/receipts/[receiptId]" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }

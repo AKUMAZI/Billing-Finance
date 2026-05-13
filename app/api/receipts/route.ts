@@ -5,7 +5,7 @@ import { listReceiptsFromPaidInvoices } from "@/lib/receipts-store"
 export const runtime = "nodejs"
 
 export async function GET(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/receipts", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/receipts" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }

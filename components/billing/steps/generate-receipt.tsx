@@ -41,6 +41,7 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
         "x-actor-role": "billing_staff",
       },
       body: JSON.stringify(payload),
+      credentials: "include",
     })
 
     if (!res.ok) {
@@ -94,6 +95,7 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
           patient_id: invoice.patient_id,
         },
       }),
+      credentials: "include",
     })
     if (!res.ok) {
       let msg = await res.text()
@@ -141,6 +143,7 @@ export function GenerateReceipt({ invoice, payment, onNewTransaction }: Generate
         details,
         subsystem: "Billing",
       }),
+      credentials: "include",
     }).then(async (res) => {
       if (!res.ok) {
         const text = await res.text().catch(() => "")

@@ -18,7 +18,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils"
 import type { PatientsApiResponse, ExternalPatient } from "@/lib/types"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json())
 
 // Derive insurance claims from patient data
 interface InsuranceClaim {

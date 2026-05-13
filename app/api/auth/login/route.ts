@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { BILLING_SESSION_COOKIE_NAME, createBillingSessionToken } from "@/lib/auth"
 
 export const runtime = "nodejs"
 
@@ -63,10 +64,20 @@ export async function POST(request: NextRequest) {
       const payload = contentType.includes("application/json") ? await response.json() : await response.text()
 
       if (response.ok) {
-        return NextResponse.json(
-          { status: "success", data: payload, meta: { upstream: url } },
-          { status: 200 }
+        const sessionToken = createBillingSessionToken(
+          { subsystem, sub: username },
+          { ttlSeconds: 60 * 60 * 8 }
         )
+
+        const res = NextResponse.json({ status: "success", data: payload, meta: { upstream: url } }, { status: 200 })
+        res.cookies.set(BILLING_SESSION_COOKIE_NAME, sessionToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 8,
+        })
+        return res
       }
 
       lastStatus = response.status

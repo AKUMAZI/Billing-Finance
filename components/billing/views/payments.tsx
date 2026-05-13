@@ -18,7 +18,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import type { InvoicesApiResponse } from "@/lib/types"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json())
 
 export function PaymentsView() {
   const [searchTerm, setSearchTerm] = useState("")

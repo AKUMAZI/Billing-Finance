@@ -52,7 +52,7 @@ interface ChargeEntryProps {
   onNext: () => void
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const fetcher = (url: string) => fetch(url, { credentials: "include" }).then((res) => res.json())
 
 export function ChargeEntry({ patient, chargeEntry, onUpdateChargeEntry, onBack, onNext }: ChargeEntryProps) {
   const [attendingPhysician, setAttendingPhysician] = useState(chargeEntry?.attending_physician || patient.attending_physician || "")

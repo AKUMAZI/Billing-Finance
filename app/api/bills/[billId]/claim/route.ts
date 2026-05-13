@@ -9,7 +9,7 @@ interface RouteContext {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const authResult = validateApiKey(request, { routeName: "/api/bills/[billId]/claim", requireApiKey: false });
+  const authResult = validateApiKey(request, { routeName: "/api/bills/[billId]/claim" });
   if (!authResult.isValid) {
     return unauthorizedResponse();
   }

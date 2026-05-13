@@ -19,7 +19,7 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import type { InvoicesApiResponse } from "@/lib/types"
 
 async function invoicesJsonFetcher(url: string): Promise<InvoicesApiResponse> {
-  const res = await fetch(url)
+  const res = await fetch(url, { credentials: "include" })
   const body = (await res.json()) as InvoicesApiResponse & { message?: string }
   if (!res.ok || body.status === "error") {
     throw new Error(typeof body.message === "string" ? body.message : "Failed to load invoices")

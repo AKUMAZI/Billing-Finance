@@ -11,7 +11,7 @@ import type { InvoicesApiResponse, PatientsApiResponse } from "@/lib/types"
 import type { BillRecord } from "@/lib/billing/types"
 
 const fetcher = (url: string) =>
-  fetch(url, { cache: "no-store" }).then((res) => res.json())
+  fetch(url, { cache: "no-store", credentials: "include" }).then((res) => res.json())
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-PH", {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { validateApiKey, unauthorizedResponse } from "@/lib/auth"
 
 // Support both names; .env often uses INVENTORY_BASE_URL
 const INVENTORY_API_BASE_URL = (
@@ -17,6 +18,11 @@ const INVENTORY_NAMES_PARAM =
 export const runtime = "nodejs"
 
 export async function GET(request: NextRequest) {
+  const authResult = validateApiKey(request, { routeName: "/api/inventory" })
+  if (!authResult.isValid) {
+    return unauthorizedResponse()
+  }
+
   const searchParams = request.nextUrl.searchParams
   const medicineNames = searchParams.getAll("medicine_name")
   const medicineNamesCsv = searchParams.get("medicine_names")

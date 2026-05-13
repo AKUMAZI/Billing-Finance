@@ -274,7 +274,7 @@ function resolvePmsInvoiceMatch(
 export const runtime = "nodejs"
 
 export async function GET(request: NextRequest, context: RouteContext<"/api/invoices/[invoiceId]">) {
-  const authResult = validateApiKey(request, { routeName: "/api/invoices/[invoiceId]", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/invoices/[invoiceId]" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }
@@ -333,7 +333,7 @@ export async function GET(request: NextRequest, context: RouteContext<"/api/invo
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext<"/api/invoices/[invoiceId]">) {
-  const authResult = validateApiKey(request, { routeName: "/api/invoices/[invoiceId]", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/invoices/[invoiceId]" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }

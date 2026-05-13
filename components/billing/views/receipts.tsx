@@ -25,13 +25,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ReceiptRecord } from "@/lib/receipts-store"
 
-const BILLING_API_KEY = process.env.NEXT_PUBLIC_BILLING_API_KEY
-
 const fetcher = (url: string) =>
-  fetch(url, {
-    cache: "no-store",
-    headers: BILLING_API_KEY ? { "x-api-key": BILLING_API_KEY } : undefined,
-  }).then((res) => res.json())
+  fetch(url, { cache: "no-store", credentials: "include" }).then((res) => res.json())
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-PH", {

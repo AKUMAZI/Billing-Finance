@@ -3,7 +3,7 @@ import { validateApiKey, unauthorizedResponse, getDeprecationWarningHeader } fro
 import { postAdminAuditIngest, resolveAuditUserId } from "@/lib/admin-audit-ingest"
 
 export async function POST(request: NextRequest) {
-  const authResult = validateApiKey(request, { routeName: "/api/audit", requireApiKey: false })
+  const authResult = validateApiKey(request, { routeName: "/api/audit" })
   if (!authResult.isValid) {
     return unauthorizedResponse()
   }
